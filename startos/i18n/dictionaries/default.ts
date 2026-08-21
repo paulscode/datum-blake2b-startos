@@ -16,6 +16,7 @@ const dict = {
   'Payout Address Set': 12,
   'Restart the gateway for this to take effect. Blocks it mines will pay to this address.': 13,
   'Set a payout address before mining': 14,
+  'Get an address from your node to receive block rewards': 15,
 } as const
 
 /**
