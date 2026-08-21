@@ -106,8 +106,16 @@ mining work on more hardware.
    is written down.
 3. Run the **Create Compatibility Report** action. Fill in make, model and firmware
    if you know them, and anything odd you noticed.
-4. Copy what it gives you and open an issue at
-   <https://github.com/paulscode/datum-blake2b-startos/issues>.
+4. Copy what it gives you and share it in the Bitcoin section of the forum:
+   <https://paulscode.com/c/bitcoin/8>
+
+   Posting needs a free account, so sign up or log in first, then start a topic and
+   paste the report in. Say which miner it was and that is enough.
+
+If you already use GitHub, an issue on
+<https://github.com/paulscode/datum-blake2b-startos/issues> does just as well and
+has a form that prompts for each field. Either route reaches the same place, so use
+whichever you find easier.
 
 Nothing is sent anywhere on its own: you see exactly what you are sharing before you
 share it, and worker names are hashed and passwords dropped before anything reaches

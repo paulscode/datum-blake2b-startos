@@ -12,6 +12,9 @@ body:
 
         Worker names are hashed and passwords dropped before anything reaches disk,
         so the report is safe to paste here as generated.
+
+        You can also post it on the forum instead, in the Bitcoin section:
+        https://paulscode.com/c/bitcoin/8 . Either reaches the same place.
   - type: textarea
     id: report
     attributes:

@@ -205,7 +205,11 @@ def main():
 
     if s["capped"]:
         print("_Capture hit its size cap; figures cover the recorded portion._\n")
-    print("_Worker names are hashed and passwords dropped at capture time._")
+    print("_Worker names are hashed and passwords dropped at capture time._\n")
+    print("Share this in the Bitcoin section of the forum:")
+    print("  https://paulscode.com/c/bitcoin/8   (a free account is needed to post)")
+    print("or, if you already use GitHub:")
+    print("  https://github.com/paulscode/datum-blake2b-startos/issues")
     return 0
 
 

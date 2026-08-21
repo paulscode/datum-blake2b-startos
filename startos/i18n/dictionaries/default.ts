@@ -33,7 +33,7 @@ const dict = {
   'Create Compatibility Report': 29,
   'Summarise how your miner talked to this gateway, so the result can be shared with the upstream projects.': 30,
   'Compatibility Report': 31,
-  'Copy this and open an issue on the datum-blake2b-startos repo. Nothing is sent anywhere on its own.': 32,
+  'Copy this and share it in the Bitcoin section of paulscode.com (a free account is needed to post), or open a GitHub issue if you prefer. Nothing is sent anywhere on its own.': 32,
   'Report': 33,
 } as const
 

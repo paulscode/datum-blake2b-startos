@@ -88,7 +88,7 @@ export const createCompatibilityReport = sdk.Action.withInput(
       version: '1' as const,
       title: i18n('Compatibility Report'),
       message: i18n(
-        'Copy this and open an issue on the datum-blake2b-startos repo. Nothing is sent anywhere on its own.',
+        'Copy this and share it in the Bitcoin section of paulscode.com (a free account is needed to post), or open a GitHub issue if you prefer. Nothing is sent anywhere on its own.',
       ),
       result: {
         type: 'single' as const,

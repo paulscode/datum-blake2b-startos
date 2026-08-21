@@ -97,6 +97,16 @@ hardware 40.40.HA) in Sia mode connected, received BLAKE2b work, and mined block
 node accepted: **0 high-hash and 0 bad-headline rejections**, tip a 164-byte header
 v2. No firmware changes.
 
+## Reporting a device
+
+Reports go to the Bitcoin section of the forum, <https://paulscode.com/c/bitcoin/8>,
+which needs a free account to post in. A GitHub issue on this repo works equally well
+for anyone who already has an account there, and has an issue form that prompts for
+each field.
+
+The forum is listed first deliberately: the audience for these packages is people
+with a home server and a miner, not people who have used a bug tracker.
+
 ## Compatibility matrix
 
 | Device | Firmware | Connects | Jobs | Shares accepted | Blocks | Firmware changes |
