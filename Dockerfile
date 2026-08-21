@@ -29,14 +29,18 @@ RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libcurl4 libjansson4 libsodium23 libmicrohttpd12 wget \
+        libcurl4 libjansson4 libsodium23 libmicrohttpd12 wget python3 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -m -d /data -u 1000 datum
 
 COPY --from=build /src/build/datum_gateway /usr/local/bin/datum_gateway
 COPY --from=build /src/PINNED_COMMIT /etc/datum-pinned-commit
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Compatibility capture: a recording proxy for the opt-in test port, and the
+# summariser the report action runs. Python is here only for these; the gateway
+# itself does not use it.
+COPY capture/stratumtap.py capture/report.py /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/stratumtap.py /usr/local/bin/report.py
 
 VOLUME /data
 EXPOSE 23334 7152

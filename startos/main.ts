@@ -7,7 +7,14 @@ import {
   rpcPort as knotsRpcPort,
 } from 'knots-blake2b-startos/startos/utils'
 import { sdk } from './sdk'
-import { dataDir, knotsMountpoint, stratumPort, uiPort } from './utils'
+import {
+  captureLog,
+  capturePort,
+  dataDir,
+  knotsMountpoint,
+  stratumPort,
+  uiPort,
+} from './utils'
 
 // The node's stable contract. Its *internal* port and host id are what may be
 // relied on; its external port is assigned at runtime and must never be assumed.
@@ -136,6 +143,35 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }),
         },
         requires: ['chown'],
+      })
+      // Recording proxy for the opt-in compatibility-test port. Forwards to the
+      // gateway untouched; a miner on the normal port never touches it. Capped
+      // so an unattended capture cannot fill the volume.
+      .addDaemon('capture', {
+        subcontainer,
+        exec: {
+          command: [
+            'python3',
+            '/usr/local/bin/stratumtap.py',
+            '--listen',
+            `0.0.0.0:${capturePort}`,
+            '--upstream',
+            `127.0.0.1:${stratumPort}`,
+            '--log',
+            captureLog,
+            '--max-bytes',
+            String(8 * 1024 * 1024),
+          ],
+        },
+        ready: {
+          display: i18n('Compatibility capture'),
+          fn: () =>
+            sdk.healthCheck.checkPortListening(effects, capturePort, {
+              successMessage: i18n('Ready to record a miner'),
+              errorMessage: i18n('Not recording yet'),
+            }),
+        },
+        requires: ['gateway'],
       })
   )
 })

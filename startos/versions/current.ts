@@ -1,13 +1,13 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:9',
+  version: '1.0.0:13',
   releaseNotes: {
-    en_US: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
-    es_ES: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
-    de_DE: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
-    pl_PL: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
-    fr_FR: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
+    en_US: 'Add a compatibility-test Stratum port that records a miner conversation, and a Create Compatibility Report action that summarises it for sharing upstream.',
+    es_ES: 'Add a compatibility-test Stratum port that records a miner conversation, and a Create Compatibility Report action that summarises it for sharing upstream.',
+    de_DE: 'Add a compatibility-test Stratum port that records a miner conversation, and a Create Compatibility Report action that summarises it for sharing upstream.',
+    pl_PL: 'Add a compatibility-test Stratum port that records a miner conversation, and a Create Compatibility Report action that summarises it for sharing upstream.',
+    fr_FR: 'Add a compatibility-test Stratum port that records a miner conversation, and a Create Compatibility Report action that summarises it for sharing upstream.',
   },
   migrations: {
     up: async ({ effects }) => {},

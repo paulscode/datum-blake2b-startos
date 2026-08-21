@@ -11,6 +11,13 @@
 export const stratumPort = 23336
 export const uiPort = 7153
 
+// Opt-in recording port. A miner pointed here has its conversation captured for
+// a compatibility report; the normal port records nothing. Kept separate rather
+// than making the main port switchable, so the mining path never grows an extra
+// hop or a mode that can be left switched on.
+export const capturePort = 23337
+export const captureLog = '/data/capture/wire.jsonl'
+
 export const dataDir = '/data'
 
 // Where this container mounts the node's volume, read-only, to read its cookie.

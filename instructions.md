@@ -94,6 +94,30 @@ network as the server.
 one this serves. That is worth reporting, with the miner's make, model and firmware
 version.
 
+## Reporting a miner nobody has tried
+
+If your miner is not listed below, a report helps the upstream projects make BLAKE2b
+mining work on more hardware.
+
+1. On the **Interfaces** tab, find **Stratum (compatibility test)**. It is a second
+   address on a different port from the normal one.
+2. Point your miner at it, using the server's IP address, and let it run for a minute
+   or two. It mines exactly as normal; the only difference is that the conversation
+   is written down.
+3. Run the **Create Compatibility Report** action. Fill in make, model and firmware
+   if you know them, and anything odd you noticed.
+4. Copy what it gives you and open an issue at
+   <https://github.com/paulscode/datum-blake2b-startos/issues>.
+
+Nothing is sent anywhere on its own: you see exactly what you are sharing before you
+share it, and worker names are hashed and passwords dropped before anything reaches
+disk.
+
+To test a second miner, restart this service first. That starts a fresh capture, so
+two miners do not get blended into one report.
+
+Switch back to the normal Stratum address when you are done.
+
 ## Which miners work
 
 Verified: **Goldshell HS-Box** (firmware 2.2.4, MCB_V5_4) in Sia mode, on stock

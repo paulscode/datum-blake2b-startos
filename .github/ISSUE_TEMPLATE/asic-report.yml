@@ -1,0 +1,56 @@
+name: ASIC compatibility report
+description: Tell us how a BLAKE2b miner behaved, so upstream can support more hardware
+title: "[ASIC] "
+labels: ["asic-compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The easiest way to fill this in is to run the **Create Compatibility Report**
+        action in the Datum Gateway BLAKE2b service and paste the result below. It
+        gathers everything in one go.
+
+        Worker names are hashed and passwords dropped before anything reaches disk,
+        so the report is safe to paste here as generated.
+  - type: textarea
+    id: report
+    attributes:
+      label: Compatibility report
+      description: Paste the output of the Create Compatibility Report action
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Make and model
+      placeholder: Goldshell HS-Box
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      placeholder: "2.2.4"
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: What happened
+      options:
+        - Mined normally, shares accepted
+        - Connected and got jobs, but submitted nothing
+        - Connected, but never received jobs
+        - Never connected
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: mode
+    attributes:
+      label: Which algorithm mode the miner was in
+      placeholder: SC / Siacoin
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Firmware changes, odd behaviour, what you tried
