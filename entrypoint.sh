@@ -14,9 +14,11 @@ CONF="$DATADIR/datum.json"
 # running: StartOS says never fabricate a dependency address, so we start anyway,
 # fail to fetch templates, and let the health check show it.
 if [ -z "${POOL_ADDRESS:-}" ]; then
+    # Belt and braces. The critical task from watchPayoutAddress should stop the
+    # service reaching this point, so if we are here something bypassed it.
     echo "FATAL: no payout address set. Block rewards would have nowhere to go," >&2
-    echo "       and inventing one would send your coins to a stranger. Set the" >&2
-    echo "       payout address in this service's settings, then start it." >&2
+    echo "       and inventing one would send your coins to a stranger. Run the" >&2
+    echo "       'Set Payout Address' action, then start the service." >&2
     exit 1
 fi
 

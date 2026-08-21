@@ -1,13 +1,13 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:5',
+  version: '1.0.0:7',
   releaseNotes: {
-    en_US: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
-    es_ES: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
-    de_DE: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
-    pl_PL: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
-    fr_FR: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
+    en_US: 'Validate the payout address in the action handler: the input pattern was not enforced on the CLI path and a mainnet address was accepted.',
+    es_ES: 'Validate the payout address in the action handler: the input pattern was not enforced on the CLI path and a mainnet address was accepted.',
+    de_DE: 'Validate the payout address in the action handler: the input pattern was not enforced on the CLI path and a mainnet address was accepted.',
+    pl_PL: 'Validate the payout address in the action handler: the input pattern was not enforced on the CLI path and a mainnet address was accepted.',
+    fr_FR: 'Validate the payout address in the action handler: the input pattern was not enforced on the CLI path and a mainnet address was accepted.',
   },
   migrations: {
     up: async ({ effects }) => {},

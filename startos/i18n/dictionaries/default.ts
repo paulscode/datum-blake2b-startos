@@ -8,6 +8,14 @@ const dict = {
   'Gateway status and share counts': 4,
   'The gateway is serving work': 5,
   'The gateway is not serving work yet': 6,
+  'Payout Address': 7,
+  'A regtest address from your BLAKE2b node. Every block this gateway mines pays here.': 8,
+  'Must be a regtest address: starts with m, n, 2, or bcrt1': 9,
+  'Set Payout Address': 10,
+  'Choose where block rewards go. The gateway will not mine until this is set.': 11,
+  'Payout Address Set': 12,
+  'Restart the gateway for this to take effect. Blocks it mines will pay to this address.': 13,
+  'Set a payout address before mining': 14,
 } as const
 
 /**

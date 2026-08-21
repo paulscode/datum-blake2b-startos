@@ -5,6 +5,7 @@ import { versionGraph } from '../versions'
 import { actions } from '../actions'
 import { restoreInit } from '../backups'
 import { seedFiles } from './seedFiles'
+import { watchPayoutAddress } from './watchPayoutAddress'
 
 export const init = sdk.setupInit(
   restoreInit,
@@ -13,6 +14,7 @@ export const init = sdk.setupInit(
   setDependencies,
   actions,
   seedFiles,
+  watchPayoutAddress,
 )
 
 export const uninit = sdk.setupUninit(versionGraph)

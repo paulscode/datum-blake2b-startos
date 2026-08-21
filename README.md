@@ -53,11 +53,22 @@ placeholder address, so the failure is visible instead of masked.
 
 | Key | Default | Notes |
 |---|---|---|
-| `poolAddress` | empty | where block rewards go. **The service refuses to start until this is set**, because inventing an address would send the user's coins to a stranger |
+| `poolAddress` | empty | where block rewards go. Set with the **Set Payout Address** action |
 | `vardiffMin` | 64 | starting share difficulty; vardiff adapts from here |
 
-There is no UI for this yet. It currently has to be written into `store.json` by
-hand, which is the main gap before a non-technical user can use this package.
+`poolAddress` is prompted as a **critical task on install**, which blocks the service
+from starting until it is set. There is no safe default: inventing an address would
+send the user's block rewards somewhere they do not control.
+
+### A note on input validation
+
+The action validates the address **in its handler**, not only through the input
+`patterns`. The pattern was observed not to be enforced on the
+`start-cli package action run` path: a mainnet address passed straight through and
+became the payout address, despite a correct anchored regex that rejects it. The
+guide states patterns are checked on every path into an action, so this looks like a
+discrepancy worth reporting upstream. Until then the handler check is the real gate,
+and it is the one that matters here.
 
 ## Build
 
