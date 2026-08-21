@@ -8,9 +8,13 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const stratumMulti = sdk.MultiHost.of(effects, 'stratum')
   const stratumOrigin = await stratumMulti.bindPort(stratumPort, {
     protocol: null,
-    preferredExternalPort: stratumPort,
     addSsl: null,
-    secure: null,
+    preferredExternalPort: stratumPort,
+    // `secure: { ssl: false }` declares a plaintext protocol deliberately, which
+    // is what gets a LAN-reachable listener. `secure: null` allocates a port
+    // reachable over lxcbr0 and nowhere else, so the miner could never see it.
+    // Stratum v1 to a stock Sia ASIC is plain TCP; there is no TLS option here.
+    secure: { ssl: false },
   })
   const stratum = sdk.createInterface(effects, {
     name: i18n('Stratum'),
