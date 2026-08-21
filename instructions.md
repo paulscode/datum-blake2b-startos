@@ -37,15 +37,22 @@ default would mean sending your block rewards to somebody else.
 
 ### 3. Start it, and find your Stratum address
 
-Start the service, then open its **Interfaces** tab and copy the **Stratum**
-address. It looks like:
+Start the service, then open its **Interfaces** tab and find the **Stratum**
+address.
+
+**Use your server's IP address, not its `.local` name.** The Interfaces tab will
+show something like `stratum+tcp://your-server.local:23336`, but most ASIC firmware
+cannot resolve `.local` names: they have no mDNS resolver, so the miner silently
+never connects and its own screen just says the pool is not ready. Substitute the
+IP:
 
 ```
-stratum+tcp://your-server.local:23336
+stratum+tcp://192.168.1.50:23336
 ```
 
-**Read it from that tab rather than copying the port from here.** StartOS assigns
-the port and can pick a different one.
+Your server's IP is on its **System** page. **Read the port from the Interfaces
+tab** rather than copying it from here: StartOS assigns it and may pick a different
+one.
 
 ### 4. Point your miner at it
 
@@ -77,8 +84,10 @@ fast. That is expected and is not a sign that your miner is unusually good.
 **The miner connects but nothing happens.** Check that the node is running and past
 its first block. The Dashboard shows whether the gateway is getting templates.
 
-**The miner will not connect.** Check the Stratum address on the Interfaces tab
-matches what you typed, including the port, and that your miner is on the same
+**The miner will not connect**, or says the pool is not ready. Nine times out of
+ten this is the `.local` name: replace it with the server's IP address. Most ASIC
+firmware cannot resolve `.local`, and fails silently rather than saying so. Then
+check the port matches the Interfaces tab, and that the miner is on the same
 network as the server.
 
 **Shares are rejected.** Your miner may speak a different Stratum dialect than the
@@ -87,7 +96,9 @@ version.
 
 ## Which miners work
 
-Verified: **Goldshell HS-Box** in Sia mode, on stock firmware, no changes.
+Verified: **Goldshell HS-Box** (firmware 2.2.4, MCB_V5_4) in Sia mode, on stock
+firmware, no changes. It connects, receives BLAKE2b work, and the blocks it finds
+are accepted with no rejections.
 
 Other Sia BLAKE2b miners are expected to work but have not been tested. If you try
 one, reporting the result either way is useful.

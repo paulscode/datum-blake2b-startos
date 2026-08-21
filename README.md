@@ -36,6 +36,12 @@ is unidentified. 23336 is honoured, verified on a fresh install.
 **Read the address off the Interfaces tab regardless.** `preferredExternalPort` is a
 request, not a reservation, so the assigned port can differ from this.
 
+**And give miners the IP, not the `.local` name.** StartOS presents the hostname,
+but ASIC firmware generally has no mDNS resolver, so the miner never connects and
+reports only that the pool is not ready. Confirmed on a Goldshell HS-Box: identical
+config failed on `worthy-maverick.local:23336` and connected immediately on
+`192.168.5.14:23336`.
+
 ## Credentials
 
 None are stored. The node writes an RPC cookie into its datadir and this package
@@ -86,5 +92,7 @@ Builds, installs and runs on StartOS 0.4.0.1. **Verified end to end from another
 machine on the LAN**: a CPU miner connected over stratum, was served BLAKE2b work,
 and the node accepted the resulting blocks with no `high-hash` rejections.
 
-Not verified: a real ASIC against this package (proven only against the host and
-plain-Docker stacks), and there is no action for setting the payout address.
+**Verified with a real ASIC.** A stock Goldshell HS-Box (firmware 2.2.4, MCB_V5_4)
+in Sia mode connected, received BLAKE2b work, and mined blocks the node accepted:
+8 blocks found, 10 successful submissions, **0 high-hash and 0 bad-headline
+rejections**, tip a 164-byte header v2. No firmware changes.
