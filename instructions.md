@@ -49,8 +49,16 @@ the port and can pick a different one.
 
 ### 4. Point your miner at it
 
-In your miner's own web interface, set the pool to that Stratum address. The worker
-name and password can be anything; they are not used.
+In your miner's own web interface, set the pool to that Stratum address.
+
+**The worker name and password are not used.** You do not put your payout address
+here. Some pools want `address.workername` as the username; this does not, because
+it is not pooled mining. The payout comes entirely from the address you set in step
+2, and DATUM's own documentation is explicit that Stratum usernames "have no effect
+whatsoever" in non-pooled mode.
+
+Put something readable like `hsbox` so you can tell miners apart on the dashboard,
+and anything at all as the password.
 
 Then watch the **Dashboard** interface on this service. Once the miner connects you
 should see its hashrate and shares climbing.

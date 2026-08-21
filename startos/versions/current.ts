@@ -1,13 +1,13 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:8',
+  version: '1.0.0:9',
   releaseNotes: {
-    en_US: 'Point the user at the node Get Payout Address action, so there is a way to obtain an address without a shell.',
-    es_ES: 'Point the user at the node Get Payout Address action, so there is a way to obtain an address without a shell.',
-    de_DE: 'Point the user at the node Get Payout Address action, so there is a way to obtain an address without a shell.',
-    pl_PL: 'Point the user at the node Get Payout Address action, so there is a way to obtain an address without a shell.',
-    fr_FR: 'Point the user at the node Get Payout Address action, so there is a way to obtain an address without a shell.',
+    en_US: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
+    es_ES: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
+    de_DE: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
+    pl_PL: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
+    fr_FR: 'Reject bech32 regtest addresses: DATUM cannot pay to them, and accepting one moved the failure somewhere far less obvious.',
   },
   migrations: {
     up: async ({ effects }) => {},

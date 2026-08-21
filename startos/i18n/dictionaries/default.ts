@@ -10,7 +10,7 @@ const dict = {
   'The gateway is not serving work yet': 6,
   'Payout Address': 7,
   'A regtest address from your BLAKE2b node. Every block this gateway mines pays here.': 8,
-  'Must be a regtest address: starts with m, n, 2, or bcrt1': 9,
+  'Must be a regtest address starting with m, n or 2': 9,
   'Set Payout Address': 10,
   'Choose where block rewards go. The gateway will not mine until this is set.': 11,
   'Payout Address Set': 12,

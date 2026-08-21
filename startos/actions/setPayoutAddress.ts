@@ -18,10 +18,8 @@ const inputSpec = InputSpec.of({
         // Deliberately narrow. A mainnet address here would be a silent trap,
         // since this chain's coins are worthless and the user would be pointing
         // at an address whose key they may not even hold on a real chain.
-        regex: '([mn2][a-km-zA-HJ-NP-Z1-9]{25,39}|bcrt1[a-z0-9]{8,71})',
-        description: i18n(
-          'Must be a regtest address: starts with m, n, 2, or bcrt1',
-        ),
+        regex: '[mn2][a-km-zA-HJ-NP-Z1-9]{25,39}',
+        description: i18n('Must be a regtest address starting with m, n or 2'),
       },
     ],
   }),
@@ -60,9 +58,22 @@ export const setPayoutAddress = sdk.Action.withInput(
     // every path, and this is the one setting where accepting a wrong value
     // silently sends someone's block rewards to an address they do not control.
     const addr = input.poolAddress.trim()
-    if (!/^([mn2][a-km-zA-HJ-NP-Z1-9]{25,39}|bcrt1[a-z0-9]{8,71})$/.test(addr)) {
+    // bcrt1 is excluded deliberately, not by oversight. DATUM's address parser
+    // only understands bech32 with the `bc` and `tb` prefixes
+    // (datum_utils.c:415-425), so a regtest bech32 address fails to convert and
+    // the gateway refuses to start. Accepting one here would move the failure
+    // somewhere far less obvious.
+    if (/^bcrt1/.test(addr)) {
       throw new Error(
-        `Not a regtest address: ${addr}. It must start with m, n, 2 or bcrt1. ` +
+        `${addr} is a bech32 regtest address, which this gateway cannot pay to: ` +
+          `its address parser only understands the bc and tb prefixes. Use a ` +
+          `legacy address starting with m, n or 2. The node's Get Payout Address ` +
+          `action gives you one.`,
+      )
+    }
+    if (!/^[mn2][a-km-zA-HJ-NP-Z1-9]{25,39}$/.test(addr)) {
+      throw new Error(
+        `Not a usable regtest address: ${addr}. It must start with m, n or 2. ` +
           `A mainnet address here would send block rewards somewhere you may not control.`,
       )
     }
