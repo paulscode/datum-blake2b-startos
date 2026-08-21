@@ -46,8 +46,7 @@ export const manifest = setupManifest({
         // A dependency icon is an absolute URL into the dependency's repo, not a
         // magic filename, so PNG is fine (E9). It is fetched by the StartOS UI,
         // which means the packaging repo has to be public for it to render.
-        // TODO: pin to a commit SHA once knots-blake2b-startos is pushed.
-        icon: 'https://raw.githubusercontent.com/paulscode/knots-blake2b-startos/main/dep-icon.png',
+        icon: 'https://raw.githubusercontent.com/paulscode/knots-blake2b-startos/4dcb43811bf695ce6631e3e43876b41db52300ed/dep-icon.png',
       },
     },
   },
