@@ -92,7 +92,30 @@ Builds, installs and runs on StartOS 0.4.0.1. **Verified end to end from another
 machine on the LAN**: a CPU miner connected over stratum, was served BLAKE2b work,
 and the node accepted the resulting blocks with no `high-hash` rejections.
 
-**Verified with a real ASIC.** A stock Goldshell HS-Box (firmware 2.2.4, MCB_V5_4)
-in Sia mode connected, received BLAKE2b work, and mined blocks the node accepted:
-8 blocks found, 10 successful submissions, **0 high-hash and 0 bad-headline
-rejections**, tip a 164-byte header v2. No firmware changes.
+**Verified with a real ASIC.** A stock Goldshell HS-Box (firmware 2.2.4, MCB_V5_4,
+hardware 40.40.HA) in Sia mode connected, received BLAKE2b work, and mined blocks the
+node accepted: **0 high-hash and 0 bad-headline rejections**, tip a 164-byte header
+v2. No firmware changes.
+
+## Compatibility matrix
+
+| Device | Firmware | Connects | Jobs | Shares accepted | Blocks | Firmware changes |
+|---|---|---|---|---|---|---|
+| Goldshell HS-Box (SC mode) | 2.2.4 / MCB_V5_4 | yes | yes | 41 of 41 | yes | none |
+
+Dialect, from a capture:
+
+```
+user agent       : intminer
+subscribe        : 2 params, [ua, session-id]   resumes sessions on reconnect
+extranonce1      : 4 bytes    extranonce2_size: 8
+submit           : 5 params, widths 5,16,16,16,16   (Sia 8-byte ntime/nonce)
+difficulty       : honoured, vardiff tracked 64 -> 1024 -> 512
+non-standard     : none
+```
+
+**Worth knowing for pool operators:** this device opens a bare TCP connection roughly
+every 3.1 seconds that never sends `mining.subscribe`, alongside one long-lived
+session that does all the mining. In one 177 s capture that was 58 connections but
+only 2 stratum sessions. Anything that rate-limits, bans, or bills per connection
+will see roughly 20 no-op connections per minute per miner.

@@ -40,8 +40,8 @@ def summarise(rows):
         "ua": None, "en1": None, "en2_size": None, "connections": 0,
         "notifies": 0, "submits": 0, "accepted": 0, "rejected": Counter(),
         "diffs": [], "submit_widths": Counter(), "subscribe_widths": None,
-        "methods": Counter(), "nonstandard": Counter(), "span": 0.0,
-        "nsubscribe_params": None,
+        "methods": Counter(), "nonstandard": Counter(), "span": 0.0, "idle_period": None,
+        "nsubscribe_params": None, "subscribes": 0, "resumes": 0,
         "first_submit": None, "reconnect_burst": 0, "capped": False,
     }
     pending, conn_times = {}, []
@@ -69,9 +69,16 @@ def summarise(rows):
                     s["ua"] = p[0]
                 s["subscribe_widths"] = r.get("widths")
                 s["nsubscribe_params"] = r.get("nparams")
+                s["subscribes"] += 1
+                # A second param is a session id being offered for resumption.
+                if (r.get("nparams") or 0) >= 2:
+                    s["resumes"] += 1
                 pending[m.get("id")] = "subscribe"
             elif meth == "mining.notify":
                 s["notifies"] += 1
+                p = m.get("params") or []
+                if p and p[-1] is True:
+                    s["clean"] = s.get("clean", 0) + 1
             elif meth == "mining.set_difficulty":
                 d = (m.get("params") or [None])[0]
                 if d is not None and d not in s["diffs"]:
@@ -102,6 +109,9 @@ def summarise(rows):
     # A burst is reconnects inside the first 30s; that is the pattern that trips
     # rate limiting, and it reads very differently from steady reconnecting.
     s["reconnect_burst"] = sum(1 for t in conn_times if t <= (conn_times[0] + 30)) if conn_times else 0
+    # Median gap, so one outlier does not define the pattern.
+    gaps = sorted(round(b - a, 1) for a, b in zip(conn_times, conn_times[1:]))
+    s["idle_period"] = gaps[len(gaps) // 2] if len(gaps) >= 4 else None
     return s
 
 
@@ -148,9 +158,19 @@ def main():
     print(verdict(s) + "\n")
 
     print("### Outcome\n")
-    print(f"- connections: {s['connections']}"
-          + (f" ({s['reconnect_burst']} in the first 30s)" if s["reconnect_burst"] > 1 else ""))
-    print(f"- jobs received: {s['notifies']}")
+    # Connections and stratum sessions are different things, and conflating them
+    # makes a well-behaved miner look like it is thrashing. This device opens a
+    # bare TCP connection every few seconds that never speaks stratum, while one
+    # long-lived session does all the mining.
+    bare = s["connections"] - s["subscribes"]
+    print(f"- TCP connections: {s['connections']}"
+          + (f", of which {bare} never sent mining.subscribe" if bare > 0 else ""))
+    if s["idle_period"]:
+        print(f"- bare connections arrive about every {s['idle_period']:.1f}s")
+    print(f"- stratum sessions: {s['subscribes']}"
+          + (f" ({s['resumes']} offering a session id to resume)" if s["resumes"] else ""))
+    print(f"- jobs received: {s['notifies']}"
+          + (f" ({s['clean']} with clean_jobs)" if s.get("clean") else ""))
     print(f"- shares: {s['submits']} submitted, {s['accepted']} accepted")
     for k, v in s["rejected"].most_common():
         print(f"- rejected: {v} x `{k}`")
