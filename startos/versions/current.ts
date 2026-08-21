@@ -1,13 +1,13 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:4',
+  version: '1.0.0:5',
   releaseNotes: {
-    en_US: 'Make the Stratum port LAN-reachable so a miner can actually connect: secure null binds only to the internal bridge.',
-    es_ES: 'Make the Stratum port LAN-reachable so a miner can actually connect: secure null binds only to the internal bridge.',
-    de_DE: 'Make the Stratum port LAN-reachable so a miner can actually connect: secure null binds only to the internal bridge.',
-    pl_PL: 'Make the Stratum port LAN-reachable so a miner can actually connect: secure null binds only to the internal bridge.',
-    fr_FR: 'Make the Stratum port LAN-reachable so a miner can actually connect: secure null binds only to the internal bridge.',
+    en_US: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
+    es_ES: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
+    de_DE: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
+    pl_PL: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
+    fr_FR: 'Move Stratum to 23336: StartOS would not honour 23335 as a preferred external port, assigning a random one instead.',
   },
   migrations: {
     up: async ({ effects }) => {},
