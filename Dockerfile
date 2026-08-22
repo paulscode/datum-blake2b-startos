@@ -1,12 +1,25 @@
 # DATUM Gateway with BLAKE2b header-v2 support.
 #
-# Built from our fork branch, not the upstream fork tip, because the h1
-# complete-version fix (justinfilip/datum_gateway#3) is not merged yet. When it
-# merges, point DATUM_REPO/DATUM_REF back at upstream and drop the note.
+# Built from our fork, which is now upstream master plus one test-only commit.
+#
+# The h1 complete-version bug we carried a fix for is fixed upstream in 56c31f4,
+# in datum_pow.c rather than at the call site where our patch put it, which is the
+# better place: the commitment function is now correct for any caller. That patch
+# is therefore gone from this build.
+#
+# What remains is the test correction. Upstream's "canonical profile-0 vector
+# published with Knots' header-v2 implementation" is not the published vector: it
+# passes m_flags 0x5c where Knots' block_header_v2.json has 0x1c, and expects
+# values it computed for itself. 0x5c also sets 0x40, which Knots rejects as
+# bad-flags-highbits. Dropping to upstream master alone would mean building
+# against a gateway whose BLAKE2b vectors are checked only against themselves.
+#
+# Pinned by commit, not by branch. A branch name is a moving target and this is
+# the one input that decides whether the work we hand an ASIC matches consensus.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=h1-complete-version
+ARG DATUM_REF=e0437de68bdb045150327f8ab891df3b42c2538a
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \
