@@ -9,20 +9,81 @@ set -euo pipefail
 DATADIR=/data
 CONF="$DATADIR/datum.json"
 
+RPC_URL="${RPC_URL:-}"
+
 # RPC_URL/RPC_USER/RPC_PASSWORD come from the node's cookie via a read-only mount
 # of its volume. They are deliberately absent when the node is not installed or not
 # running: StartOS says never fabricate a dependency address, so we start anyway,
 # fail to fetch templates, and let the health check show it.
+#
+# StartOS reads the cookie in the service definition and passes the two halves in
+# as environment. Umbrel has nothing that can do that, so read the cookie here
+# when COOKIE_PATH names one and no credentials were supplied. Same file, same
+# source of truth either way, and no RPC secret is generated, stored or shared.
+if [ -z "${RPC_USER:-}" ] && [ -n "${COOKIE_PATH:-}" ]; then
+    for _ in $(seq 1 60); do
+        [ -s "$COOKIE_PATH" ] && break
+        sleep 2
+    done
+    if [ -s "$COOKIE_PATH" ]; then
+        _cookie="$(cat "$COOKIE_PATH")"
+        RPC_USER="${_cookie%%:*}"
+        RPC_PASSWORD="${_cookie#*:}"
+        echo "datum-blake2b: authenticating with the node's cookie"
+    else
+        echo "datum-blake2b: no cookie at $COOKIE_PATH; starting without RPC credentials" >&2
+    fi
+fi
+
+# Where the block rewards go. StartOS asks for this with an action and refuses to
+# start without an answer. Umbrel has no equivalent, and prompting is the whole
+# reason that flow exists, so there ask the node for an address instead and keep
+# the first one it gives. It is the user's own node and their own wallet, so this
+# is not inventing an address, only saving them a step.
+#
+# Legacy on purpose: DATUM's address parser understands the bc and tb bech32
+# prefixes only (datum_utils.c), so a regtest bcrt1 address is rejected downstream.
+POOL_ADDRESS_FILE="$DATADIR/payout_address"
+if [ -z "${POOL_ADDRESS:-}" ] && [ -s "$POOL_ADDRESS_FILE" ]; then
+    POOL_ADDRESS="$(cat "$POOL_ADDRESS_FILE")"
+fi
+if [ -z "${POOL_ADDRESS:-}" ] && [ "${AUTO_PAYOUT_FROM_NODE:-0}" = "1" ] \
+        && [ -n "$RPC_URL" ] && [ -n "${RPC_USER:-}" ]; then
+    echo "datum-blake2b: no payout address set, asking the node for one"
+    _rpc() {
+        wget -q -O - --header='Content-Type: application/json' \
+            --http-user="$RPC_USER" --http-password="$RPC_PASSWORD" \
+            --post-data="{\"jsonrpc\":\"1.0\",\"id\":\"init\",\"method\":\"$1\",\"params\":$2}" \
+            "$RPC_URL" 2>/dev/null || true
+    }
+    for _ in $(seq 1 30); do
+        # Whichever of these two applies is the one that works; the other fails
+        # harmlessly. Trying both avoids having to ask first.
+        _rpc loadwallet   '["mining"]' >/dev/null
+        _rpc createwallet '["mining"]' >/dev/null
+        _addr="$(_rpc getnewaddress '["","legacy"]' \
+            | sed -n 's/.*"result":"\([^"]*\)".*/\1/p')"
+        [ -n "$_addr" ] && break
+        sleep 2
+    done
+    if [ -n "${_addr:-}" ]; then
+        POOL_ADDRESS="$_addr"
+        printf %s "$POOL_ADDRESS" > "$POOL_ADDRESS_FILE"
+        echo "datum-blake2b: payout address $POOL_ADDRESS"
+    else
+        echo "datum-blake2b: the node did not give an address; is it running?" >&2
+    fi
+fi
+
 if [ -z "${POOL_ADDRESS:-}" ]; then
-    # Belt and braces. The critical task from watchPayoutAddress should stop the
-    # service reaching this point, so if we are here something bypassed it.
+    # Belt and braces. On StartOS the critical task from watchPayoutAddress should
+    # stop the service reaching this point, so if we are here something bypassed it.
     echo "FATAL: no payout address set. Block rewards would have nowhere to go," >&2
-    echo "       and inventing one would send your coins to a stranger. Run the" >&2
-    echo "       'Set Payout Address' action, then start the service." >&2
+    echo "       and inventing one would send your coins to a stranger. Set one" >&2
+    echo "       ('Set Payout Address' on StartOS) and start the service again." >&2
     exit 1
 fi
 
-RPC_URL="${RPC_URL:-}"
 STRATUM_PORT="${STRATUM_PORT:-23334}"
 API_PORT="${API_PORT:-7152}"
 VARDIFF_MIN="${VARDIFF_MIN:-1024}"

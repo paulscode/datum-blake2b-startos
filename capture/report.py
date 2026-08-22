@@ -196,8 +196,10 @@ def main():
             print("Submit uses **8-hex ntime and nonce**, the Bitcoin 4-byte convention.\n")
 
     print("### Environment\n")
-    print(f"- datum-blake2b image (`{a.datum_commit or '?'}`)")
-    print("- package versions: see each service's page in StartOS\n")
+    # The pinned commit identifies the gateway build exactly, which is what an
+    # upstream reader needs. Naming a host platform here would be wrong half the
+    # time: the same image runs the StartOS package and the Umbrel app.
+    print(f"- datum-blake2b image (`{a.datum_commit or '?'}`)\n")
 
     if a.notes:
         print("### Notes\n")

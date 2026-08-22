@@ -36,11 +36,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /src/build/datum_gateway /usr/local/bin/datum_gateway
 COPY --from=build /src/PINNED_COMMIT /etc/datum-pinned-commit
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-# Compatibility capture: a recording proxy for the opt-in test port, and the
-# summariser the report action runs. Python is here only for these; the gateway
-# itself does not use it.
-COPY capture/stratumtap.py capture/report.py /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/stratumtap.py /usr/local/bin/report.py
+# Compatibility capture: a recording proxy for the opt-in test port, the
+# summariser that turns a capture into a report, and a one-page web front end for
+# it used on platforms that have no equivalent of a StartOS action. Python is
+# here only for these; the gateway itself does not use it.
+COPY capture/stratumtap.py capture/report.py capture/report_server.py /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/stratumtap.py \
+        /usr/local/bin/report.py /usr/local/bin/report_server.py
 
 VOLUME /data
 EXPOSE 23334 7152

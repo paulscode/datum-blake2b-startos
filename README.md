@@ -53,6 +53,31 @@ height must carry it in its coinbase or the node rejects it `bad-headline`.
 When the node is not resolvable, no `rpcurl` is written at all rather than a dead
 placeholder address, so the failure is visible instead of masked.
 
+## The image also runs on Umbrel
+
+The same image backs the Umbrel app in
+[paulscode/umbrel-store](https://github.com/paulscode/umbrel-store)
+(`paulscode-datum-blake2b`). Nothing about the gateway differs; what differs is
+that Umbrel has no equivalent of a StartOS action, so two things the service
+definition does here have to be done by the entrypoint there. Both are opt-in and
+inert unless the environment asks for them, so the StartOS path is unchanged:
+
+| Variable | Effect |
+|---|---|
+| `COOKIE_PATH` | Read the node's RPC cookie from this path when `RPC_USER` is unset, waiting up to two minutes for it to appear. On StartOS the service definition reads the cookie and passes the halves in as `RPC_USER`/`RPC_PASSWORD`, so this stays unset. |
+| `AUTO_PAYOUT_FROM_NODE=1` | When no payout address is set, ask the node for one (`getnewaddress "" legacy`) and persist it to `/data/payout_address`. On StartOS the **Set Payout Address** action and its critical task cover this, so it stays unset. |
+
+`capture/report_server.py` is the third piece: a one-page web front end that runs
+`report.py` and shows the result in a copyable box. It is the Umbrel app's tile,
+and is not used on StartOS, where the **Create Compatibility Report** action does
+the same job with a real form. Both shell out to the same `report.py`, so the two
+platforms produce identical reports.
+
+Legacy addresses are not an arbitrary choice in either place: DATUM's address
+parser understands the `bc` and `tb` bech32 prefixes only
+([`datum_utils.c`](https://github.com/OCEAN-xyz/datum_gateway/blob/main/src/datum_utils.c)),
+so a regtest `bcrt1` address is rejected downstream.
+
 ## Configuration
 
 `store.json` on the main volume:
