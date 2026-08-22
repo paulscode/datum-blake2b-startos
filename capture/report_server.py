@@ -57,13 +57,11 @@ PAGE = """<!doctype html>
 <div class="card">
 <h2 style="margin-top:0">Point your miner here</h2>
 <p>In your miner's own web interface, set the pool to:</p>
-<p><code id="stratum">stratum+tcp://&hellip;:{stratum_port}</code></p>
+<p><code id="stratum">stratum+tcp://{host}:{stratum_port}</code></p>
 <p>The worker name and password are not used. Put anything readable as the
 worker so you can tell miners apart.</p>
-<p><strong>Use your server's IP address, not a <code>.local</code> name.</strong>
-Most ASIC firmware has no mDNS resolver, so a <code>.local</code> address fails
-silently and the miner just says the pool is not ready.</p>
-<a class="button" id="dash" href="#">Open the mining dashboard</a>
+{host_note}
+{dashboard_link}
 </div>
 
 <div class="card">
@@ -72,9 +70,9 @@ silently and the miner just says the pool is not ready.</p>
 the upstream projects support more hardware.</p>
 <ol>
 <li>Point your miner at the <strong>capture</strong> port
-    <code id="capture">&hellip;:{capture_port}</code> instead of the normal one.
-    It mines exactly as normal; the only difference is that the conversation is
-    written down.</li>
+    <code id="capture">stratum+tcp://{host}:{capture_port}</code> instead of the
+    normal one. It mines exactly as normal; the only difference is that the
+    conversation is written down.</li>
 <li>Let it run for a minute or two.</li>
 <li>Fill this in and press the button.</li>
 </ol>
@@ -96,19 +94,33 @@ the upstream projects support more hardware.</p>
 exactly what you are sharing before you share it, and worker names are hashed and
 passwords dropped before anything reaches disk.</p>
 
-<script>
- // The page is reached through Umbrel's app proxy, so the browser knows the
- // right host and this page does not have to be told what it is.
- var h = location.hostname;
- document.getElementById('stratum').textContent = 'stratum+tcp://' + h + ':{stratum_port}';
- document.getElementById('capture').textContent = h + ':{capture_port}';
- var d = document.getElementById('dash');
- d.href = 'http://' + h + ':{dashboard_port}';
- d.target = '_blank';
-</script>
 </body>
 </html>
 """
+
+# Shown when the host's LAN address is known. The point is not to repeat the
+# warning but to explain why the address here is not the one in the address bar,
+# so the two do not read as contradicting each other.
+HOST_KNOWN_NOTE = """<p>That is your server's IP address rather than the name in
+your browser's address bar, and the difference matters: most ASIC firmware has no
+mDNS resolver, so a <code>.local</code> address fails silently and the miner
+reports only that the pool is not ready. If your server's IP ever changes,
+restart this app and this page will catch up.</p>"""
+
+DASHBOARD_LINK = """<a class="button" href="{url}" target="_blank">Open the mining dashboard</a>"""
+
+# Without a known host address, the browser's own is the sensible fallback for a
+# link a person clicks. It is only the miner that cannot use it.
+DASHBOARD_LINK_JS = """<a class="button" id="dash" href="#" target="_blank">Open the mining dashboard</a>
+<script>document.getElementById('dash').href =
+  location.protocol + '//' + location.hostname + ':{port}';</script>"""
+
+# Shown when it is not. Better to say plainly that a value is missing than to
+# print the browser's hostname and have the page contradict itself.
+HOST_UNKNOWN_NOTE = """<p><strong>Substitute your server's IP address for
+<code>YOUR-SERVER-IP</code>.</strong> Most ASIC firmware has no mDNS resolver, so
+a <code>.local</code> name fails silently and the miner reports only that the pool
+is not ready. You can find the address on your server's settings page.</p>"""
 
 REPORT_BLOCK = """<div class="card">
 <h2 style="margin-top:0">Your report</h2>
@@ -128,7 +140,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def _render(self, values=None, report=None):
         values = values or {}
+        host = self.cfg["host_ip"]
         body = PAGE.format(
+            host=html.escape(host or "YOUR-SERVER-IP"),
+            host_note=HOST_KNOWN_NOTE if host else HOST_UNKNOWN_NOTE,
+            # The dashboard is a link a person clicks, not an address a miner is
+            # given, so falling back to whatever host the browser already reached
+            # this page on is right here even though it is wrong for stratum.
+            dashboard_link=DASHBOARD_LINK.format(
+                url=f"http://{html.escape(host)}:{self.cfg['dashboard_port']}"
+            ) if host else DASHBOARD_LINK_JS.format(port=self.cfg["dashboard_port"]),
             stratum_port=self.cfg["stratum_port"],
             capture_port=self.cfg["capture_port"],
             dashboard_port=self.cfg["dashboard_port"],
@@ -186,6 +207,11 @@ def main():
     ap.add_argument("--stratum-port", default=os.environ.get("STRATUM_PORT", "23336"))
     ap.add_argument("--capture-port", default=os.environ.get("CAPTURE_PORT", "23337"))
     ap.add_argument("--dashboard-port", default=os.environ.get("API_PORT", "7152"))
+    # The address to hand a miner. It has to be passed in: a container on a Docker
+    # network can only see its own address there, and the hostname the browser
+    # used is usually a .local name, which is exactly the address that does not
+    # work. Empty is handled by the page rather than guessed at.
+    ap.add_argument("--host-ip", default=os.environ.get("HOST_IP", ""))
     a = ap.parse_args()
 
     host, port = a.listen.rsplit(":", 1)
@@ -195,8 +221,10 @@ def main():
         "stratum_port": a.stratum_port,
         "capture_port": a.capture_port,
         "dashboard_port": a.dashboard_port,
+        "host_ip": a.host_ip.strip(),
     }
-    print(f"[report] serving on {host}:{port}", flush=True)
+    print(f"[report] serving on {host}:{port}, "
+          f"advertising {a.host_ip.strip() or '(no host address given)'}", flush=True)
     HTTPServer((host or "0.0.0.0", int(port)), Handler).serve_forever()
 
 
