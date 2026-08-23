@@ -167,9 +167,58 @@ with a home server and a miner, not people who have used a bug tracker.
 |---|---|---|---|---|---|---|
 | Goldshell HS-Box (SC mode) | 2.2.4 / MCB_V5_4 | yes | yes | 41 of 41 | yes | none |
 | Bitmain Antminer A3 | CGminer 4.9.0 | yes | yes | 158 of 161 | not reported | none |
+| NVIDIA GPU, `ccminer-tpfuemp -a sia` | 2026.07.2, CUDA 11.8 | connects | **rejects them** | 0 | 0 | n/a |
 
 "not reported" for the A3 because the report could not see blocks when it was
 generated. It can now, so later reports state it.
+
+## ccminer does not work, and the reason is structural
+
+Tested directly, on an RTX 3090 and a Quadro RTX 8000, with
+[tpfuemp/ccminer-tpfuemp](https://github.com/tpfuemp/ccminer-tpfuemp) at
+`c80c73ff` built against CUDA 11.8. It advertises `sia  SIA (Blake2B)` and its
+kernel is the right primitive: `blake2b_update(&ctx, input, 80)`, a BLAKE2b-256
+over an 80-byte header, the same as profile 0.
+
+It still cannot mine here. It never reaches the point of hashing:
+
+```
+[..] Stratum notify: invalid parameters
+[..] Stratum authentication failed
+[..] ...retry after 30 seconds
+```
+
+The gate is in ccminer's generic `stratum_notify` (`util.cpp`):
+
+```c
+if (... || strlen(nbits) != 8 || strlen(stime) != 8) {
+    applog(LOG_ERR, "Stratum notify: invalid parameters");
+```
+
+Our `ntime` is 16 hex characters, 8 bytes, which is the Sia convention every ASIC
+tested here uses. ccminer's sia path requires 8 hex, 4 bytes, the Bitcoin
+convention. That check is not sia-specific; it is the shared parser.
+
+**Widening `ntime` would not be enough**, and this part is read from ccminer's
+source rather than measured, because it never got far enough to measure. Its
+Sia stratum is a different dialect throughout:
+
+| | this gateway (and the ASICs) | ccminer `-a sia` |
+|---|---|---|
+| `ntime` on the wire | 8 bytes | 4 bytes |
+| `nonce` in submit | 8 bytes | 4 bytes |
+| `extranonce2` | 8 bytes | 2 bytes |
+| the 32-byte root | `BLAKE2b(0x00000000 ‖ coinb1 ‖ xn1 ‖ xn2)` | `coinbase[0..31]` taken literally |
+| header layout | `prevhash ‖ nonce(8) ‖ ntime(8) ‖ root(32)` | `prevhash ‖ nonce(8) ‖ ntime(4) ‖ nbits(4) ‖ root(32)` |
+
+It is built for the siamining/nanopool style of Sia pool, which hands the miner a
+finished merkle root and a Bitcoin-shaped time field. Ours hands out a coinbase
+prefix to hash, as the ASICs expect. Both are called "Sia stratum" and they are
+not the same protocol.
+
+So a GPU miner for this chain is a real piece of work rather than a matter of
+finding the right flag: either patch ccminer's sia path to the ASIC dialect, or
+port `lab/harness/siaminer.py`, which already speaks it correctly on CPU.
 
 Dialect, from a capture:
 

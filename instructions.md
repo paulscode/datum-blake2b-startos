@@ -149,3 +149,20 @@ vendor's own firmware. They spoke to the gateway identically.
 
 Other Sia BLAKE2b miners are expected to work but have not been tried. If you try
 one, reporting the result either way is useful, including when it works.
+
+## What about GPUs?
+
+Not with the obvious candidate. `ccminer` has a `sia` algorithm that computes
+exactly the right hash, and it was tested here on an RTX 3090 and a Quadro
+RTX 8000. It never gets as far as hashing: it rejects the work this gateway sends
+and retries in a loop.
+
+The reason is that "Sia stratum" means two different things. The ASICs speak one
+version, with 8-byte time and nonce fields and a coinbase the miner hashes itself.
+ccminer speaks the version used by the Sia pools, with 4-byte fields and a
+ready-made merkle root. This gateway serves the ASIC one, because ASICs are the
+point.
+
+So a GPU miner for this chain is possible but nobody has written one yet. It would
+mean teaching an existing miner the other dialect, not finding the right setting.
+

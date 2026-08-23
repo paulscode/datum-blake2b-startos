@@ -102,6 +102,12 @@ Verified so far, both on stock firmware: a **Goldshell HS-Box** in Sia mode, and
 **Bitmain Antminer A3** on CGminer 4.9.0. Other Sia BLAKE2b miners are expected to
 work but have not been tried.
 
+**GPUs do not work yet.** `ccminer -a sia` computes the right hash but speaks the
+other "Sia stratum" dialect, the one the Sia pools use, with 4-byte time and nonce
+fields and a ready-made merkle root. This gateway serves the dialect the ASICs
+speak. Tested on an RTX 3090 and a Quadro RTX 8000: it rejects the work and never
+starts hashing.
+
 If yours is not one of those, point it at the **capture** port (23337 by default)
 instead of the normal one for a minute or two. It mines exactly as normal; the only
 difference is that the conversation is written down. Then fill in the form on the
