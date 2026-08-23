@@ -180,13 +180,15 @@ class Handler(BaseHTTPRequestHandler):
                 "--rpc-cookie", self.cfg["rpc_cookie"]]
         for f in FIELDS:
             argv += [f"--{f}", values[f]]
-        commit = ""
-        try:
-            with open("/etc/datum-pinned-commit") as fh:
-                commit = fh.read().strip()
-        except OSError:
-            pass
-        argv += ["--datum-commit", commit]
+        def read(path):
+            try:
+                with open(path) as fh:
+                    return fh.read().strip()
+            except OSError:
+                return ""
+
+        argv += ["--datum-commit", read("/etc/datum-pinned-commit"),
+                 "--tooling-id", read("/etc/datum-tooling-id")]
 
         try:
             out = subprocess.run(argv, capture_output=True, timeout=60)

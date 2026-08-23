@@ -252,11 +252,15 @@ non-standard     : none
 one TCP connection, one stratum session, 7474 s
 ```
 
-Two differences from the HS-Box, neither a compatibility problem. It subscribes with
-one parameter and never offers a session id, where the HS-Box sends two and resumes.
-And it holds a single connection for the whole session rather than opening a bare one
-every few seconds, so the rate-limiting note above is specific to the Goldshell, not
-to Sia miners generally.
+One difference from the HS-Box, and it is not a compatibility problem: the A3 holds
+a single connection for the whole session, where the HS-Box opens a bare one every
+few seconds. The rate-limiting note above is specific to the Goldshell, not to Sia
+miners generally.
+
+A second run from the same reporter offered a session id on subscribe (2 params,
+widths 13,9) where the first sent one parameter. So session resumption is something
+this device does sometimes, not something it never does. Worth remembering that a
+single capture shows what a device did once, not what it always does.
 
 The 34-character worker name is worth a glance: that is the length of a legacy
 address, and pool convention trains people to put `address.worker` in that field.

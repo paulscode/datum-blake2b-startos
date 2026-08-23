@@ -57,6 +57,16 @@ COPY capture/stratumtap.py capture/report.py capture/report_server.py /usr/local
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/stratumtap.py \
         /usr/local/bin/report.py /usr/local/bin/report_server.py
 
+# A fingerprint of our own tooling, so a report identifies the build it came from.
+# The pinned gateway commit alone does not: two images can share it while differing
+# in everything we wrote, which is exactly what happened when a report arrived
+# carrying block figures alongside a commit from a build that had no block
+# reporting. Derived rather than passed in, so it cannot be forgotten at build time
+# and is right on every platform.
+RUN sha256sum /usr/local/bin/entrypoint.sh /usr/local/bin/report.py \
+        /usr/local/bin/stratumtap.py /usr/local/bin/report_server.py \
+    | sha256sum | cut -c1-12 > /etc/datum-tooling-id
+
 VOLUME /data
 EXPOSE 23334 7152
 USER datum

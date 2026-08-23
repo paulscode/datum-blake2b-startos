@@ -117,6 +117,13 @@ export const createCompatibilityReport = sdk.Action.withInput(
             .execFail(['cat', '/etc/datum-pinned-commit'])
             .then((r) => r.stdout.toString().trim())
             .catch(() => ''),
+          // Identifies our own scripts. The gateway commit does not: two images
+          // can carry the same one and differ in everything we wrote.
+          '--tooling-id',
+          await sub
+            .execFail(['cat', '/etc/datum-tooling-id'])
+            .then((r) => r.stdout.toString().trim())
+            .catch(() => ''),
         ])
         return stdout.toString()
       },

@@ -230,6 +230,10 @@ def main():
         ap.add_argument(f"--{f}", default="")
     ap.add_argument("--datum-version", default="")
     ap.add_argument("--datum-commit", default="")
+    # Identifies our own scripts, which the gateway commit does not. Without it a
+    # report cannot be traced to a build, and a report that cannot be traced to a
+    # build cannot be put in a compatibility matrix.
+    ap.add_argument("--tooling-id", default="")
     # Blocks, which the wire capture cannot see. The gateway writes one file per
     # submitted block; only the node can say which of them it accepted.
     ap.add_argument("--submitted-dir", default="")
@@ -317,7 +321,8 @@ def main():
     # The pinned commit identifies the gateway build exactly, which is what an
     # upstream reader needs. Naming a host platform here would be wrong half the
     # time: the same image runs the StartOS package and the Umbrel app.
-    print(f"- datum-blake2b image (`{a.datum_commit or '?'}`)\n")
+    print(f"- datum-blake2b image (gateway `{a.datum_commit or '?'}`"
+          + (f", tooling `{a.tooling_id}`" if a.tooling_id else "") + ")\n")
 
     if a.notes:
         print("### Notes\n")
