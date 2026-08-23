@@ -208,8 +208,8 @@ Sia stratum is a different dialect throughout:
 | `ntime` on the wire | 8 bytes | 4 bytes |
 | `nonce` in submit | 8 bytes | 4 bytes |
 | `extranonce2` | 8 bytes | 2 bytes |
-| the 32-byte root | `BLAKE2b(0x00000000 ‖ coinb1 ‖ xn1 ‖ xn2)` | `coinbase[0..31]` taken literally |
-| header layout | `prevhash ‖ nonce(8) ‖ ntime(8) ‖ root(32)` | `prevhash ‖ nonce(8) ‖ ntime(4) ‖ nbits(4) ‖ root(32)` |
+| the 32-byte root | `BLAKE2b(0x00 ‖ coinb1 ‖ xn1 ‖ xn2)` | `coinbase[0..31]` taken literally |
+| header hashed | `prevhash ‖ nonce(8) ‖ ntime(8) ‖ root(32)` | `prevhash ‖ nonce(8) ‖ ntime(4) ‖ zero(4) ‖ root(32)` |
 
 It is built for the siamining/nanopool style of Sia pool, which hands the miner a
 finished merkle root and a Bitcoin-shaped time field. Ours hands out a coinbase
