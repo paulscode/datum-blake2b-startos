@@ -143,9 +143,18 @@ accepted over a two-hour session. The three that were not are the ordinary kind 
 rejection you get when the chain moves on while a share is in flight, not a sign
 of anything wrong.
 
-That second one is the more encouraging result, because the two devices have
-nothing in common: different manufacturer, and stock CGminer rather than the
-vendor's own firmware. They spoke to the gateway identically.
+**Goldshell SC5 Pro** (firmware 2.2.0). Reported by a user, over a 16 hour run.
+166 of 190 shares accepted.
+
+The A3 is the most encouraging of the three, because it has nothing in common with
+the two Goldshells: different manufacturer, and stock CGminer rather than the
+vendor's own firmware. All three spoke to the gateway identically.
+
+**Some rejected shares are normal**, and the longer you run, the more you will see.
+A share is found for a particular block; if a new block turns up while your miner
+is still working, that share arrives too late and is rejected. On a test chain
+where blocks come quickly this is common. The SC5 Pro report above had 24 of them
+over 16 hours and was working perfectly throughout.
 
 Other Sia BLAKE2b miners are expected to work but have not been tried. If you try
 one, reporting the result either way is useful, including when it works.

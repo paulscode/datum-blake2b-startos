@@ -167,6 +167,7 @@ with a home server and a miner, not people who have used a bug tracker.
 |---|---|---|---|---|---|---|
 | Goldshell HS-Box (SC mode) | 2.2.4 / MCB_V5_4 | yes | yes | 41 of 41 | yes | none |
 | Bitmain Antminer A3 | CGminer 4.9.0 | yes | yes | 158 of 161 | not reported | none |
+| Goldshell SC5 Pro | 2.2.0 / 30.50.SA | yes | yes | 166 of 190 | not reported | none |
 | NVIDIA GPU, `ccminer-tpfuemp -a sia` | 2026.07.2, CUDA 11.8 | connects | **rejects them** | 0 | 0 | n/a |
 
 "not reported" for the A3 because the report could not see blocks when it was
@@ -236,6 +237,29 @@ every 3.1 seconds that never sends `mining.subscribe`, alongside one long-lived
 session that does all the mining. In one 177 s capture that was 58 connections but
 only 2 stratum sessions. Anything that rate-limits, bans, or bills per connection
 will see roughly 20 no-op connections per minute per miner.
+
+The SC5 Pro is a second Goldshell, reported by a user over a 16.7 hour session, and
+it settles the reconnect question. 209 TCP connections against 3 stratum sessions,
+bare ones arriving every 3.1 s: the same figure and the same interval as the
+HS-Box, on a different model. Both report `intminer` as their user agent, so this
+is one firmware family behaving consistently, and the note aimed at pool operators
+belongs to Goldshell rather than to Sia miners.
+
+Two things in that report look like faults and are not.
+
+**A 17-character job id on 2 of 190 submits.** That is ours. `datum_stratum.c`
+builds a 14-hex job id and the wire form varies: a normal job is
+`job_id(14) + cbselect(2)` = 16 characters, a `quickdiff` job is
+`"Q" + job_id(14) + cbselect(2)` = 17. The `"N"` form is excluded for BLAKE2b. The
+SC5 Pro's difficulty moved through five levels, the most of any device tested, so
+quickdiff jobs were issued and it echoed two of them back correctly.
+
+**A 12.6% `stale-prevblk` rate**, against roughly 1% on the other two devices. That
+is the session, not the device. Over 60007 s it received a new job every 138 s, saw
+a new block every 429 s, and found a share every 316 s at a vardiff that peaked at
+16384. A share takes about as long to find as a block takes to arrive, so a good
+fraction are superseded mid-search. Short sessions at low difficulty do not show
+this; a 16 hour one does.
 
 The A3 result is a user report from the forum, not something run here, and it is the
 more interesting of the two because nothing about it is shared with the HS-Box: a
