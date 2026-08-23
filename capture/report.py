@@ -25,20 +25,43 @@ KNOWN_METHODS = {
 }
 
 
-def submitted_blocks(directory):
-    """Block hashes the gateway wrote a submitblock record for, this session.
+def submitted_blocks(directory, since=None):
+    """Block hashes the gateway recorded, restricted to this capture's window.
 
-    The gateway names each file after the block hash, and the entrypoint clears
-    the directory on start, so this is one session's submissions.
+    The gateway clears this directory when it starts and the capture proxy
+    truncates its log when *it* starts, and those are different containers with
+    different lifecycles. Restarting one and not the other leaves blocks from an
+    earlier run sitting beside a fresh capture, and the report then says something
+    impossible: more blocks than shares, when every block comes from a share.
+
+    So membership is decided by the file's mtime against the capture's start,
+    rather than by trusting that both resets happened together. `since` of None
+    keeps the old behaviour, for a capture written before the start time was
+    recorded.
     """
     if not directory:
         return []
     out = []
     for path in glob.glob(os.path.join(directory, "datum_submitblock_*.json")):
         h = os.path.basename(path)[len("datum_submitblock_"):-len(".json")]
-        if len(h) == 64 and all(c in "0123456789abcdef" for c in h.lower()):
-            out.append(h.lower())
+        if len(h) != 64 or not all(c in "0123456789abcdef" for c in h.lower()):
+            continue
+        if since is not None:
+            try:
+                if os.path.getmtime(path) < since:
+                    continue
+            except OSError:
+                continue
+        out.append(h.lower())
     return sorted(set(out))
+
+
+def capture_start(rows):
+    """Absolute time the capture began, if it recorded one."""
+    for r in rows:
+        if r.get("note") == "capture started" and isinstance(r.get("epoch"), (int, float)):
+            return float(r["epoch"])
+    return None
 
 
 def ask_node(rpc_url, cookie_path, hashes):
@@ -249,10 +272,11 @@ def main():
         return 0
 
     s = summarise(rows)
-    hashes = submitted_blocks(a.submitted_dir)
+    started = capture_start(rows)
+    hashes = submitted_blocks(a.submitted_dir, started)
     acc, rej, err = ask_node(a.rpc_url, a.rpc_cookie, hashes)
     blocks = {"submitted": len(hashes), "accepted": len(acc),
-              "rejected": len(rej), "error": err}
+              "rejected": len(rej), "error": err, "windowed": started is not None}
     dev = " ".join(x for x in (a.make, a.model) if x) or "(not given)"
 
     print("## ASIC compatibility report\n")
@@ -285,9 +309,15 @@ def main():
     elif blocks["error"]:
         print(f"- blocks: {blocks['submitted']} submitted, acceptance not checked "
               f"({blocks['error']})")
+        if not blocks["windowed"]:
+            print("  (this capture predates block-window tracking, so the count may"
+                  " include an earlier run)")
     else:
         print(f"- blocks: {blocks['submitted']} submitted, "
               f"{blocks['accepted']} accepted by the node")
+        if not blocks["windowed"]:
+            print("  (this capture predates block-window tracking, so the count may"
+                  " include an earlier run)")
         if blocks["rejected"]:
             print(f"- blocks the node did not accept: {blocks['rejected']}")
             if blocks["accepted"]:

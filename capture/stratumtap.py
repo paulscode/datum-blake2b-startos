@@ -51,6 +51,14 @@ class Tap:
         # easy to explain. Appending would silently blend two different miners
         # into one report, which is worse than losing an old capture.
         self.log = open(logpath, "w", buffering=1)
+        # An absolute start time, so a reader can tell which blocks belong to this
+        # capture. Everything else here is relative to t0, which is fine for
+        # describing a session and useless for correlating with anything outside
+        # it. The gateway records submitted blocks in a different container with a
+        # different lifecycle, so "cleared on start" does not mean the two were
+        # cleared at the same time.
+        self.log.write(json.dumps(
+            {"t": 0.0, "dir": "tap", "note": "capture started", "epoch": self.t0}) + "\n")
 
     def record(self, direction, line):
         entry = {"t": round(time.time() - self.t0, 3), "dir": direction}
