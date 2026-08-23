@@ -95,6 +95,18 @@ parser understands the `bc` and `tb` bech32 prefixes only
 ([`datum_utils.c`](https://github.com/OCEAN-xyz/datum_gateway/blob/main/src/datum_utils.c)),
 so a regtest `bcrt1` address is rejected downstream.
 
+## Plain Docker
+
+`docker/` carries a compose file and instructions for running the pair on a Linux
+box with neither StartOS nor Umbrel, using the published images. It follows the
+Umbrel wiring rather than the StartOS one, because that is the variant that needs
+no prompting: the payout address comes from the node and the report is a page.
+
+Two things differ from the Umbrel app. Host ports are overridable, since nothing
+assigns them and a clash is a failed start rather than a warning. And `HOST_IP`
+has to be passed on the command line, because there is no `exports.sh` to work it
+out on the host.
+
 ## Configuration
 
 `store.json` on the main volume:
