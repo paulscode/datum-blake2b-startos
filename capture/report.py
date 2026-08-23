@@ -8,8 +8,13 @@ transcript does not.
 """
 
 import argparse
+import base64
+import glob
 import json
+import os
 import sys
+import urllib.error
+import urllib.request
 from collections import Counter
 
 KNOWN_METHODS = {
@@ -18,6 +23,70 @@ KNOWN_METHODS = {
     "mining.extranonce.subscribe", "mining.suggest_difficulty",
     "mining.set_extranonce", "client.get_version", "client.reconnect",
 }
+
+
+def submitted_blocks(directory):
+    """Block hashes the gateway wrote a submitblock record for, this session.
+
+    The gateway names each file after the block hash, and the entrypoint clears
+    the directory on start, so this is one session's submissions.
+    """
+    if not directory:
+        return []
+    out = []
+    for path in glob.glob(os.path.join(directory, "datum_submitblock_*.json")):
+        h = os.path.basename(path)[len("datum_submitblock_"):-len(".json")]
+        if len(h) == 64 and all(c in "0123456789abcdef" for c in h.lower()):
+            out.append(h.lower())
+    return sorted(set(out))
+
+
+def ask_node(rpc_url, cookie_path, hashes):
+    """Which of these blocks did the node actually accept into its chain?
+
+    The node is the only authority on this. The gateway knows what it sent; it
+    does not know what came back, and an accepted share is not a block. This is
+    exactly the distinction the h1 version-bit bug lived in, where every share
+    looked healthy and every block was rejected.
+
+    Returns (accepted, rejected, error) where error is set when the node could
+    not be asked at all, so a report can say "not checked" rather than "none".
+    """
+    if not hashes:
+        return [], [], None
+    if not rpc_url or not cookie_path or not os.path.exists(cookie_path):
+        return [], [], "no RPC credentials"
+    try:
+        with open(cookie_path) as fh:
+            cookie = fh.read().strip()
+    except OSError as exc:
+        return [], [], f"could not read the cookie ({exc})"
+
+    auth = base64.b64encode(cookie.encode()).decode()
+    accepted, rejected = [], []
+    for h in hashes:
+        body = json.dumps({"jsonrpc": "1.0", "id": "report",
+                           "method": "getblockheader", "params": [h]}).encode()
+        req = urllib.request.Request(
+            rpc_url, data=body,
+            headers={"Content-Type": "application/json",
+                     "Authorization": "Basic " + auth})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                res = json.load(resp).get("result") or {}
+            # Known to the node and on the best chain. A block it rejected is not
+            # known at all; one it accepted but reorged away has confirmations -1,
+            # which is not the same thing and should not be counted as accepted.
+            if res.get("confirmations", -1) >= 1:
+                accepted.append(h)
+            else:
+                rejected.append(h)
+        except urllib.error.HTTPError:
+            # The node answers 500 with an error body for an unknown block.
+            rejected.append(h)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return accepted, rejected, f"the node could not be reached ({exc})"
+    return accepted, rejected, None
 
 
 def load(path):
@@ -115,7 +184,30 @@ def summarise(rows):
     return s
 
 
-def verdict(s):
+def verdict(s, blocks=None):
+    # A block the node accepted is the strongest statement this report can make,
+    # and it is a different claim from accepted shares. Shares are the gateway's
+    # opinion; a block in the chain is the node's.
+    if blocks and blocks["accepted"]:
+        line = (f"**Works, and it mined real blocks.** The node accepted "
+                f"{blocks['accepted']} of {blocks['submitted']} blocks this miner "
+                f"found.")
+        # Only mention shares when they agree with that. A miner can land blocks
+        # while its shares are refused, because the gateway checks a submission
+        # against the block target before the share target, and on a test chain
+        # the block target is the easier of the two. True of the CPU reference
+        # miner, and it would read as a contradiction rather than as detail.
+        if s["accepted"]:
+            line += f" {s['accepted']} of {s['submits']} shares were accepted."
+        return line
+    if blocks and blocks["submitted"] and blocks["error"] is None:
+        return (f"**Hashing, but no block stuck.** {blocks['submitted']} blocks were "
+                "submitted and the node accepted none of them. The miner and the "
+                "gateway agree; the gateway and the node do not.")
+    return _verdict_shares(s)
+
+
+def _verdict_shares(s):
     # Ordered by strength of evidence, not by position in the handshake. A
     # capture can be missing connection records (an older format, or a proxy in
     # front) while plainly showing accepted shares, and reporting "no connection"
@@ -138,6 +230,11 @@ def main():
         ap.add_argument(f"--{f}", default="")
     ap.add_argument("--datum-version", default="")
     ap.add_argument("--datum-commit", default="")
+    # Blocks, which the wire capture cannot see. The gateway writes one file per
+    # submitted block; only the node can say which of them it accepted.
+    ap.add_argument("--submitted-dir", default="")
+    ap.add_argument("--rpc-url", default="")
+    ap.add_argument("--rpc-cookie", default="")
     a = ap.parse_args()
 
     rows = load(a.wire)
@@ -148,6 +245,10 @@ def main():
         return 0
 
     s = summarise(rows)
+    hashes = submitted_blocks(a.submitted_dir)
+    acc, rej, err = ask_node(a.rpc_url, a.rpc_cookie, hashes)
+    blocks = {"submitted": len(hashes), "accepted": len(acc),
+              "rejected": len(rej), "error": err}
     dev = " ".join(x for x in (a.make, a.model) if x) or "(not given)"
 
     print("## ASIC compatibility report\n")
@@ -155,7 +256,7 @@ def main():
     if a.firmware:
         print(f"**Firmware:** {a.firmware}")
     print(f"**Stratum user agent:** `{s['ua'] or 'not sent'}`\n")
-    print(verdict(s) + "\n")
+    print(verdict(s, blocks) + "\n")
 
     print("### Outcome\n")
     # Connections and stratum sessions are different things, and conflating them
@@ -174,7 +275,24 @@ def main():
     print(f"- shares: {s['submits']} submitted, {s['accepted']} accepted")
     for k, v in s["rejected"].most_common():
         print(f"- rejected: {v} x `{k}`")
-    print(f"- session: {s['span']:.0f}s\n")
+    print(f"- session: {s['span']:.0f}s")
+    if blocks is None or not blocks["submitted"]:
+        print("- blocks: none submitted this session")
+    elif blocks["error"]:
+        print(f"- blocks: {blocks['submitted']} submitted, acceptance not checked "
+              f"({blocks['error']})")
+    else:
+        print(f"- blocks: {blocks['submitted']} submitted, "
+              f"{blocks['accepted']} accepted by the node")
+        if blocks["rejected"]:
+            print(f"- blocks the node did not accept: {blocks['rejected']}")
+            if blocks["accepted"]:
+                # Two blocks found at the same height is normal when blocks come
+                # this fast, and only one can win. Worth saying, because a bare
+                # count here looks like a fault and is not one.
+                print("  (normal when blocks come quickly: two found at the same"
+                      " height, and only one can be the chain)")
+    print()
 
     print("### Dialect\n")
     print("```")

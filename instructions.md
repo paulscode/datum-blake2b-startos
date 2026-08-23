@@ -106,6 +106,10 @@ mining work on more hardware.
    is written down.
 3. Run the **Create Compatibility Report** action. Fill in make, model and firmware
    if you know them, and anything odd you noticed.
+
+   The report says whether your node accepted the blocks your miner found, not
+   just whether the gateway liked its shares. Those are different things, and the
+   block one is what actually matters.
 4. Copy what it gives you and share it in the Bitcoin section of the forum:
    <https://paulscode.com/c/bitcoin/8>
 

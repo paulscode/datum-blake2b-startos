@@ -67,6 +67,23 @@ inert unless the environment asks for them, so the StartOS path is unchanged:
 | `COOKIE_PATH` | Read the node's RPC cookie from this path when `RPC_USER` is unset, waiting up to two minutes for it to appear. On StartOS the service definition reads the cookie and passes the halves in as `RPC_USER`/`RPC_PASSWORD`, so this stays unset. |
 | `AUTO_PAYOUT_FROM_NODE=1` | When no payout address is set, ask the node for one (`getnewaddress "" legacy`) and persist it to `/data/payout_address`. On StartOS the **Set Payout Address** action and its critical task cover this, so it stays unset. |
 
+The Umbrel `report` container also gets `RPC_URL` and `COOKIE_PATH` and a read-only
+mount of the node's datadir, so it can check block acceptance. On StartOS the
+action mounts the same dependency volume and passes the same two values.
+
+**Blocks in the report.** `mining.save_submitblocks_dir` points at `/data/submitted`,
+so the gateway writes one small JSON file per submitted block, named by its hash.
+The entrypoint clears that directory on start, the same way the capture log is
+truncated, so a report covers one session. `report.py` reads the hashes and asks
+the node `getblockheader` for each, counting only those with `confirmations >= 1`
+as accepted.
+
+Only the node can answer that question, and it is a different question from
+accepted shares: shares are the gateway's opinion, a block in the chain is the
+node's. The `h1` version-bit bug lived exactly in that gap, with healthy share
+stats and every block rejected. When the node cannot be reached the report says
+"acceptance not checked" and why, rather than reporting zero.
+
 `capture/report_server.py` is the third piece: a one-page web front end that runs
 `report.py` and shows the result in a copyable box. It is the Umbrel app's tile,
 and is not used on StartOS, where the **Create Compatibility Report** action does
@@ -138,6 +155,9 @@ with a home server and a miner, not people who have used a bug tracker.
 |---|---|---|---|---|---|---|
 | Goldshell HS-Box (SC mode) | 2.2.4 / MCB_V5_4 | yes | yes | 41 of 41 | yes | none |
 | Bitmain Antminer A3 | CGminer 4.9.0 | yes | yes | 158 of 161 | not reported | none |
+
+"not reported" for the A3 because the report could not see blocks when it was
+generated. It can now, so later reports state it.
 
 Dialect, from a capture:
 

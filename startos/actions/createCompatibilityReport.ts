@@ -1,6 +1,18 @@
+import { manifest as knotsManifest } from 'knots-blake2b-startos/startos/manifest'
+import {
+  rpcHostId as knotsRpcHostId,
+  rpcPort as knotsRpcPort,
+} from 'knots-blake2b-startos/startos/utils'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { captureLog, dataDir } from '../utils'
+import {
+  captureLog,
+  dataDir,
+  knotsMountpoint,
+  submittedDir,
+} from '../utils'
+
+const KNOTS_PKG = knotsManifest.id
 
 const { InputSpec, Value } = sdk
 
@@ -49,23 +61,49 @@ export const createCompatibilityReport = sdk.Action.withInput(
   async () => ({}),
 
   async ({ effects, input }) => {
+    // Whether the node accepted a block is a different question from whether it
+    // accepted shares, and only the node can answer it. Same read-only mount and
+    // same cookie the daemon uses, and the only call made is getblockheader.
+    const rpcAddr = await sdk.host
+      .getBridgeAddress(effects, {
+        packageId: KNOTS_PKG,
+        hostId: knotsRpcHostId,
+        internalPort: knotsRpcPort,
+        ssl: false,
+      })
+      .const()
+
     // The summariser lives in the image next to the recorder, so the parsing
     // stays in one place and the action does not re-implement it in TypeScript.
     const report = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'datum' },
-      sdk.Mounts.of().mountVolume({
-        volumeId: 'main',
-        subpath: null,
-        mountpoint: dataDir,
-        readonly: true,
-      }),
+      sdk.Mounts.of()
+        .mountVolume({
+          volumeId: 'main',
+          subpath: null,
+          mountpoint: dataDir,
+          readonly: true,
+        })
+        .mountDependency<typeof knotsManifest>({
+          dependencyId: KNOTS_PKG,
+          volumeId: 'main',
+          subpath: null,
+          mountpoint: knotsMountpoint,
+          readonly: true,
+        }),
       'report',
       async (sub) => {
         const { stdout } = await sub.execFail([
           'python3',
           '/usr/local/bin/report.py',
           captureLog,
+          '--submitted-dir',
+          submittedDir,
+          '--rpc-url',
+          rpcAddr ? `http://${rpcAddr}` : '',
+          '--rpc-cookie',
+          `${knotsMountpoint}/regtest/.cookie`,
           '--make',
           input.make || '',
           '--model',

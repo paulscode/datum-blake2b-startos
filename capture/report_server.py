@@ -174,7 +174,10 @@ class Handler(BaseHTTPRequestHandler):
         form = urllib.parse.parse_qs(raw)
         values = {f: (form.get(f) or [""])[0].strip() for f in FIELDS}
 
-        argv = [sys.executable, self.cfg["report_py"], self.cfg["capture_log"]]
+        argv = [sys.executable, self.cfg["report_py"], self.cfg["capture_log"],
+                "--submitted-dir", self.cfg["submitted_dir"],
+                "--rpc-url", self.cfg["rpc_url"],
+                "--rpc-cookie", self.cfg["rpc_cookie"]]
         for f in FIELDS:
             argv += [f"--{f}", values[f]]
         commit = ""
@@ -212,6 +215,11 @@ def main():
     # used is usually a .local name, which is exactly the address that does not
     # work. Empty is handled by the page rather than guessed at.
     ap.add_argument("--host-ip", default=os.environ.get("HOST_IP", ""))
+    # Blocks. The wire capture cannot see them: the gateway records each block it
+    # submits, and only the node can say which it accepted.
+    ap.add_argument("--submitted-dir", default="/data/submitted")
+    ap.add_argument("--rpc-url", default=os.environ.get("RPC_URL", ""))
+    ap.add_argument("--rpc-cookie", default=os.environ.get("COOKIE_PATH", ""))
     a = ap.parse_args()
 
     host, port = a.listen.rsplit(":", 1)
@@ -222,6 +230,9 @@ def main():
         "capture_port": a.capture_port,
         "dashboard_port": a.dashboard_port,
         "host_ip": a.host_ip.strip(),
+        "submitted_dir": a.submitted_dir,
+        "rpc_url": a.rpc_url,
+        "rpc_cookie": a.rpc_cookie,
     }
     print(f"[report] serving on {host}:{port}, "
           f"advertising {a.host_ip.strip() or '(no host address given)'}", flush=True)

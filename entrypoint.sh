@@ -101,6 +101,17 @@ if [ -n "${BLAKE2B_HEADLINE:-}" ] && [ ${#BLAKE2B_HEADLINE} -gt 80 ]; then
     exit 1
 fi
 
+# One small JSON file per block the gateway submits, named by its hash. That is
+# how a compatibility report can say whether blocks were accepted rather than only
+# whether shares were: an accepted share is not a block, and the h1 version-bit bug
+# was precisely the case where shares looked healthy and every block was rejected.
+#
+# Cleared on start, for the same reason the capture log is truncated on start: a
+# report describes one session, and two miners tested in sequence must not blend.
+SUBMITTED_DIR="$DATADIR/submitted"
+rm -rf "$SUBMITTED_DIR"
+mkdir -p "$SUBMITTED_DIR"
+
 cat > "$CONF" <<JSON
 {
 	"bitcoind": {
@@ -119,7 +130,8 @@ cat > "$CONF" <<JSON
 		"pool_address": "${POOL_ADDRESS}",
 		"coinbase_tag_primary": "${COINBASE_TAG}",
 		"coinbase_tag_secondary": "",
-		"pow_algorithm": "${POW_ALGORITHM:-auto}"
+		"pow_algorithm": "${POW_ALGORITHM:-auto}",
+		"save_submitblocks_dir": "${SUBMITTED_DIR}"
 	},
 	"api": {
 		"admin_password": "",

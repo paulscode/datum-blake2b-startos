@@ -18,6 +18,11 @@ export const uiPort = 7153
 export const capturePort = 23337
 export const captureLog = '/data/capture/wire.jsonl'
 
+// One JSON file per block the gateway submits, named by the block hash, cleared
+// on every start. It is the only record of what was submitted; whether any of it
+// was accepted is a question only the node can answer.
+export const submittedDir = '/data/submitted'
+
 export const dataDir = '/data'
 
 // Where this container mounts the node's volume, read-only, to read its cookie.
