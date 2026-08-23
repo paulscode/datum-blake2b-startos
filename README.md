@@ -137,6 +137,7 @@ with a home server and a miner, not people who have used a bug tracker.
 | Device | Firmware | Connects | Jobs | Shares accepted | Blocks | Firmware changes |
 |---|---|---|---|---|---|---|
 | Goldshell HS-Box (SC mode) | 2.2.4 / MCB_V5_4 | yes | yes | 41 of 41 | yes | none |
+| Bitmain Antminer A3 | CGminer 4.9.0 | yes | yes | 158 of 161 | not reported | none |
 
 Dialect, from a capture:
 
@@ -154,3 +155,37 @@ every 3.1 seconds that never sends `mining.subscribe`, alongside one long-lived
 session that does all the mining. In one 177 s capture that was 58 connections but
 only 2 stratum sessions. Anything that rate-limits, bans, or bills per connection
 will see roughly 20 no-op connections per minute per miner.
+
+The A3 result is a user report from the forum, not something run here, and it is the
+more interesting of the two because nothing about it is shared with the HS-Box: a
+different vendor, and stock CGminer rather than vendor firmware. The dialect came out
+identical in every field that matters.
+
+```
+user agent       : cgminer/4.9.0
+subscribe        : 1 param, [ua]                 no session resumption
+extranonce1      : 4 bytes    extranonce2_size: 8
+submit           : 5 params, widths 34,16,16,16,16   (Sia 8-byte ntime/nonce)
+difficulty       : honoured, vardiff tracked 64 -> 1024 -> 512
+non-standard     : none
+one TCP connection, one stratum session, 7474 s
+```
+
+Two differences from the HS-Box, neither a compatibility problem. It subscribes with
+one parameter and never offers a session id, where the HS-Box sends two and resumes.
+And it holds a single connection for the whole session rather than opening a bare one
+every few seconds, so the rate-limiting note above is specific to the Goldshell, not
+to Sia miners generally.
+
+The 34-character worker name is worth a glance: that is the length of a legacy
+address, and pool convention trains people to put `address.worker` in that field.
+It is ignored here, as the instructions say, so it did no harm.
+
+Three `stale-prevblk` out of 161 is the tip moving under a long session, not a
+dialect issue. 486 jobs with 142 `clean_jobs` over two hours is a regtest chain
+advancing quickly.
+
+**What this report cannot show:** whether the node accepted a block. The capture sees
+the stratum conversation only, and an accepted share is not a block. On regtest nearly
+every accepted share clears the block target too, so blocks were very likely found,
+but the report has no way to say so and neither should we.

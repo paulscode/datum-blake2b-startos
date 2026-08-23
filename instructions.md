@@ -128,9 +128,20 @@ Switch back to the normal Stratum address when you are done.
 
 ## Which miners work
 
-Verified: **Goldshell HS-Box** (firmware 2.2.4, MCB_V5_4) in Sia mode, on stock
-firmware, no changes. It connects, receives BLAKE2b work, and the blocks it finds
-are accepted with no rejections.
+Two so far, from different manufacturers, both on stock firmware with no changes:
 
-Other Sia BLAKE2b miners are expected to work but have not been tested. If you try
-one, reporting the result either way is useful.
+**Goldshell HS-Box** (firmware 2.2.4, MCB_V5_4) in Sia mode. Tested here. It
+connects, receives BLAKE2b work, and the blocks it finds are accepted with no
+rejections.
+
+**Bitmain Antminer A3** (CGminer 4.9.0). Reported by a user. 158 of 161 shares
+accepted over a two-hour session. The three that were not are the ordinary kind of
+rejection you get when the chain moves on while a share is in flight, not a sign
+of anything wrong.
+
+That second one is the more encouraging result, because the two devices have
+nothing in common: different manufacturer, and stock CGminer rather than the
+vendor's own firmware. They spoke to the gateway identically.
+
+Other Sia BLAKE2b miners are expected to work but have not been tried. If you try
+one, reporting the result either way is useful, including when it works.
