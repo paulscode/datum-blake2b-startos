@@ -14,8 +14,34 @@ The point is to find out whether your ASIC can mine it.
 ## Start it
 
 ```bash
+mkdir blake2b-mining && cd blake2b-mining
 curl -fsSLO https://raw.githubusercontent.com/paulscode/datum-blake2b-startos/main/docker/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/paulscode/datum-blake2b-startos/main/docker/start.sh
+chmod +x start.sh
+./start.sh
+```
 
+It prints the page to open and the address to point your miner at. Nothing else
+to configure.
+
+`start.sh` exists because of one thing this has that StartOS and Umbrel do not:
+nobody assigns ports for you. If something on the machine already has one, Docker
+fails outright with a message that names the port and nothing else:
+
+```
+failed to bind host port 0.0.0.0:7152/tcp: address already in use
+```
+
+Picking a replacement by hand means knowing what that means, and then possibly
+doing it again for the next one. The script finds free ports instead, writes them
+to `.env`, and tells you what it chose. After the first run, plain
+`docker compose up -d` and `docker compose down` work and keep the same ports.
+
+To have them chosen again, delete `.env` and run `./start.sh` again.
+
+### Or without the script
+
+```bash
 HOST_IP=$(ip -4 route get 1.1.1.1 | grep -oP 'src \K\S+') docker compose up -d
 ```
 
@@ -24,9 +50,13 @@ passed in: a container can only see its own address on the Docker network, and
 most ASIC firmware has no mDNS resolver, so a `.local` name fails silently and the
 miner just reports that the pool is not ready.
 
-Then open **http://YOUR-SERVER-IP:7153**. That page has the Stratum address, a
-link to the mining dashboard, and the form that turns a test session into a
-compatibility report.
+If you get `address already in use`, move that port and try again:
+
+```bash
+HOST_IP=... DASHBOARD_PORT=8152 docker compose up -d
+```
+
+The variable to set for each port is in the table below.
 
 ## Point your miner at it
 
