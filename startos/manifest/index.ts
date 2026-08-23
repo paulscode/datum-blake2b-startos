@@ -21,14 +21,14 @@ export const manifest = setupManifest({
         dockerBuild: {
           dockerfile: 'Dockerfile',
           workdir: '.',
-          buildArgs: {
-            // Our fork branch, not upstream: the h1 complete-version fix
-            // (justinfilip/datum_gateway#3) is not merged yet. Without it the
-            // hasher solves for a header the node never computes and every block
-            // is rejected `high-hash`. Point this back at upstream once merged.
-            DATUM_REPO: 'https://github.com/paulscode/datum_gateway.git',
-            DATUM_REF: 'h1-complete-version',
-          },
+          // No buildArgs on purpose. The upstream ref belongs in exactly one
+          // place, and that place is the Dockerfile's ARG defaults. Setting it
+          // here as well silently overrode them: the Dockerfile was moved to a
+          // pinned commit and this was left on a floating branch, so every
+          // StartOS build kept fetching the old fork tip while the Umbrel and
+          // plain-Docker images, which have no such override, moved correctly.
+          // Two releases shipped with notes describing a change they did not
+          // contain. One source of truth, and this is not it.
         },
       },
       arch: ['x86_64', 'aarch64'],
