@@ -212,6 +212,19 @@ def verdict(s, blocks=None):
     # and it is a different claim from accepted shares. Shares are the gateway's
     # opinion; a block in the chain is the node's.
     if blocks and blocks["accepted"]:
+        # The gateway records every block it submits, for every client on every
+        # port. The capture sees one port. So more blocks than shares means
+        # something else was mining through the same gateway, and none of the
+        # block figures can be pinned on this miner. Saying "this miner found"
+        # in that case is a claim the evidence does not support.
+        if blocks["submitted"] > s["submits"]:
+            return (f"**Works, and blocks were accepted.** {s['accepted']} of "
+                    f"{s['submits']} shares from this miner were accepted, and the "
+                    f"node accepted {blocks['accepted']} of {blocks['submitted']} "
+                    "blocks. The block figures are for the whole gateway and are "
+                    "larger than this miner's share count, so something else was "
+                    "mining at the same time and the blocks cannot be credited to "
+                    "this miner.")
         line = (f"**Works, and it mined real blocks.** The node accepted "
                 f"{blocks['accepted']} of {blocks['submitted']} blocks this miner "
                 f"found.")
@@ -315,6 +328,10 @@ def main():
     else:
         print(f"- blocks: {blocks['submitted']} submitted, "
               f"{blocks['accepted']} accepted by the node")
+        if blocks["submitted"] > s["submits"]:
+            print("  (more blocks than shares, which one miner cannot produce: the"
+                  " block count covers every miner on this gateway, not just this"
+                  " one, so another was mining at the same time)")
         if not blocks["windowed"]:
             print("  (this capture predates block-window tracking, so the count may"
                   " include an earlier run)")

@@ -146,9 +146,12 @@ of anything wrong.
 **Goldshell SC5 Pro** (firmware 2.2.0). Reported by a user, over a 16 hour run.
 166 of 190 shares accepted.
 
-The A3 is the most encouraging of the three, because it has nothing in common with
-the two Goldshells: different manufacturer, and stock CGminer rather than the
-vendor's own firmware. All three spoke to the gateway identically.
+**Goldshell SC Box II** (firmware 2.2.2). Reported by a user. 557 of 563 shares
+accepted over about two hours.
+
+The A3 is the most encouraging of the four, because it has nothing in common with
+the three Goldshells: different manufacturer, and stock CGminer rather than the
+vendor's own firmware. All four spoke to the gateway identically.
 
 **Some rejected shares are normal**, and the longer you run, the more you will see.
 A share is found for a particular block; if a new block turns up while your miner

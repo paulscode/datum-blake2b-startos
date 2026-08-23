@@ -168,6 +168,7 @@ with a home server and a miner, not people who have used a bug tracker.
 | Goldshell HS-Box (SC mode) | 2.2.4 / MCB_V5_4 | yes | yes | 41 of 41 | yes | none |
 | Bitmain Antminer A3 | CGminer 4.9.0 | yes | yes | 158 of 161 | not reported | none |
 | Goldshell SC5 Pro | 2.2.0 / 30.50.SA | yes | yes | 166 of 190 | not reported | none |
+| Goldshell SC Box II | 2.2.2 / 20.10.SA | yes | yes | 557 of 563 | not attributable | none |
 | NVIDIA GPU, `ccminer-tpfuemp -a sia` | 2026.07.2, CUDA 11.8 | connects | **rejects them** | 0 | 0 | n/a |
 
 "not reported" for the A3 because the report could not see blocks when it was
@@ -237,6 +238,31 @@ every 3.1 seconds that never sends `mining.subscribe`, alongside one long-lived
 session that does all the mining. In one 177 s capture that was 58 connections but
 only 2 stratum sessions. Anything that rate-limits, bans, or bills per connection
 will see roughly 20 no-op connections per minute per miner.
+
+The SC Box II is the fourth device and the third Goldshell: 557 of 563 shares over
+2.3 hours, and the same 3.0 s bare-connection churn, 1228 of 1230 connections.
+Its Blocks column says "not attributable" rather than a number, and that is a fault
+in this package rather than in the device.
+
+**The block count is gateway-wide; the capture is one port.** `save_submitblocks_dir`
+records every block the gateway submits, for every client on 23336 and 23337 alike,
+while the capture proxy only ever sees the miner on 23337. That report claims 985
+blocks against 563 shares, and one miner cannot produce more blocks than it sent
+shares. Something else was mining through the same gateway, most likely the same
+device on the normal port for part of the session.
+
+Reproduced here with two miners, one per port: 5 shares on the capture port and 12
+blocks recorded, with the old wording crediting all 12 to "this miner". The report
+now refuses that claim and says why. Per-miner attribution is not recoverable, since
+a submitblock record is the block and says nothing about which client found it.
+
+**What the ratio should look like.** On regtest `powLimit` is about 2^255, so the
+block target is trivially easy while the share target at vardiff 64 to 4096 is far
+harder. Any share a real miner gets accepted therefore also clears the block target,
+and blocks should track shares almost exactly. The A3's 107 blocks against 107
+shares is the expected shape. Our own `--probe` runs sit below 1.0 because they
+submit arbitrary nonces that clear the block target and fail the share target. Above
+1.0 means more than one miner.
 
 The SC5 Pro is a second Goldshell, reported by a user over a 16.7 hour session, and
 it settles the reconnect question. 209 TCP connections against 3 stratum sessions,
