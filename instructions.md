@@ -146,12 +146,18 @@ of anything wrong.
 **Goldshell SC5 Pro** (firmware 2.2.0). Reported by a user, over a 16 hour run.
 166 of 190 shares accepted.
 
-**Goldshell SC Box II** (firmware 2.2.2). Reported by a user. 557 of 563 shares
-accepted over about two hours.
+**Goldshell SC Box II** (firmware 2.2.2). Reported by a user. 382 of 384 shares
+accepted, and the node accepted 346 of the 383 blocks it found.
 
 The A3 is the most encouraging of the four, because it has nothing in common with
 the three Goldshells: different manufacturer, and stock CGminer rather than the
 vendor's own firmware. All four spoke to the gateway identically.
+
+**Your miner may report a lot of hardware errors, and that is this test chain
+rather than your miner.** Blocks here are found every few seconds, and every block
+your miner finds throws away the work it had in progress. Your miner's own screen
+counts that discarded work as errors. What matters is whether shares and blocks are
+being accepted, which the report tells you.
 
 **Some rejected shares are normal**, and the longer you run, the more you will see.
 A share is found for a particular block; if a new block turns up while your miner
