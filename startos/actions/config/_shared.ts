@@ -26,15 +26,29 @@ export async function readGroup<G extends Group>(effects: any, group: G) {
   return (c?.[group] ?? {}) as NonNullable<typeof c>[G]
 }
 
-/** Merge one group back, leaving the other five untouched. */
+/**
+ * Replace one group, leaving the other five untouched.
+ *
+ * Nulls are dropped, because the SDK reports an unset optional field as null and
+ * writing null would put a JSON null into DATUM's config rather than omitting
+ * the key, which is not the same thing to its parser.
+ *
+ * The group is **replaced rather than merged**, and that distinction is the
+ * whole point. A form always submits every field, so a null means the user
+ * cleared it. Merging a cleaned object leaves the old value in place: setting
+ * `max_threads` to 4 and then clearing it would leave 4 stored forever, with the
+ * form showing empty and the config saying 4. Replacing makes clearing work.
+ * Found by clearing a value on the box and watching it come back.
+ */
 export async function writeGroup(effects: any, group: Group, input: any) {
-  // Strip nulls: the SDK gives an unset optional field as null, and writing
-  // null would serialise a JSON null into DATUM's config rather than omitting
-  // the key, which is not the same thing to the parser.
   const cleaned = Object.fromEntries(
     Object.entries(input ?? {}).filter(([, v]) => v !== null && v !== ''),
   )
-  await storeJson.merge(effects, { config: { [group]: cleaned } } as any)
+  const store = await storeJson.read().once()
+  await storeJson.write(effects, {
+    ...(store ?? {}),
+    config: { ...(store?.config ?? {}), [group]: cleaned },
+  } as any)
 }
 
 export { i18n, sdk }
