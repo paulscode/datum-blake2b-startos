@@ -230,9 +230,11 @@ def verdict(s, blocks=None):
                 f"found.")
         # Only mention shares when they agree with that. A miner can land blocks
         # while its shares are refused, because the gateway checks a submission
-        # against the block target before the share target, and on a test chain
-        # the block target is the easier of the two. True of the CPU reference
-        # miner, and it would read as a contradiction rather than as detail.
+        # against the block target before the share target, and on regtest the
+        # block target is the easier of the two. True of the CPU reference miner
+        # there, and it would read as a contradiction rather than as detail.
+        # On testnet4 the block target is far the harder, so this case does not
+        # arise and the report falls through to the share verdict instead.
         if s["accepted"]:
             line += f" {s['accepted']} of {s['submits']} shares were accepted."
         return line

@@ -94,6 +94,22 @@ export const createCompatibilityReport = sdk.Action.withInput(
         }),
       'report',
       async (sub) => {
+        // Which chain the node is on, from its own generated config through the
+        // mount we already have. bitcoind nests a non-mainnet chain's cookie in
+        // a subdirectory named for that chain, and this was hardcoded to
+        // regtest: on testnet4 the cookie was simply never found, so report.py
+        // fell back to "not checked" for block acceptance. That is the one
+        // question the report exists to answer, and it would have gone quiet
+        // rather than wrong, which is harder to notice.
+        const knotsConf = await sub
+          .execFail(['cat', `${knotsMountpoint}/bitcoin.conf`])
+          .then((r) => r.stdout.toString())
+          .catch(() => '')
+        const chain =
+          (['regtest', 'testnet4'] as const).find((c) =>
+            knotsConf.split('\n').some((l) => l.trim() === `${c}=1`),
+          ) ?? 'regtest'
+
         const { stdout } = await sub.execFail([
           'python3',
           '/usr/local/bin/report.py',
@@ -103,7 +119,7 @@ export const createCompatibilityReport = sdk.Action.withInput(
           '--rpc-url',
           rpcAddr ? `http://${rpcAddr}` : '',
           '--rpc-cookie',
-          `${knotsMountpoint}/regtest/.cookie`,
+          `${knotsMountpoint}/${chain}/.cookie`,
           '--make',
           input.make || '',
           '--model',
