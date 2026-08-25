@@ -1,7 +1,8 @@
 // Only en_US is authored here. The other locales are left as the English text
 // rather than machine-translated, so a translator can see what still needs doing
 // instead of finding plausible-looking text that nobody checked.
-const shortEn = 'EXPERIMENTAL: mine the BLAKE2b regtest chain with a Sia ASIC'
+const shortEn =
+  'EXPERIMENTAL: mine the BLAKE2b test chains with a Sia ASIC'
 
 const longEn =
   'A build of DATUM Gateway that serves Sia-style BLAKE2b work, so an existing ' +
@@ -10,7 +11,7 @@ const longEn =
   'stock firmware; a Goldshell HS-Box has been verified end to end. ' +
   'Solo mining only: pooled BLAKE2b is not possible today because the pool side ' +
   'is closed-source and SHA256d-only. ' +
-  'Requires the Bitcoin Knots BLAKE2b (regtest) service, not the official ' +
+  'Requires the Bitcoin Knots BLAKE2b service, not the official ' +
   'Bitcoin package, and installs alongside the official Datum Gateway without ' +
   'disturbing it. Regtest only: the coins are worthless by construction.'
 

@@ -1,4 +1,4 @@
-# Datum Gateway BLAKE2b (regtest)
+# Datum Gateway BLAKE2b
 
 This turns your BLAKE2b node's block templates into work an existing
 Sia-compatible BLAKE2b ASIC can mine, and hands it out over Stratum on your LAN.
@@ -9,7 +9,7 @@ whether your miner works with the proposed BLAKE2b proof of work.
 
 ## Before you start
 
-You need **Bitcoin Knots BLAKE2b (regtest)** installed and running. Not the regular
+You need **Bitcoin Knots BLAKE2b** installed and running. Not the regular
 Bitcoin service: that chain uses SHA256d, which a Sia miner cannot mine at all.
 
 ## Setup
@@ -18,7 +18,7 @@ Bitcoin service: that chain uses SHA256d, which a Sia miner cannot mine at all.
 
 Every block you mine pays to an address you choose. To get one:
 
-1. Open **Bitcoin Knots BLAKE2b (regtest)**.
+1. Open **Bitcoin Knots BLAKE2b**.
 2. Make sure it is **running**.
 3. Go to **Actions** and run **Get Payout Address**.
 4. Copy the address it shows you. It starts with `m`, `n` or `2`.
