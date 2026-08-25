@@ -132,6 +132,13 @@ const dict = {
   'Could not read the number of miners': 128,
   'Estimated hashrate': 129,
   'Could not read the hashrate': 130,
+  'An address from your BLAKE2b node, on the private chain it is running. Every block this gateway mines pays here.': 131,
+  'Must be a testnet address starting with tb1, m, n or 2': 132,
+  'An address from your BLAKE2b node, on the public test network. Every block this gateway mines pays here.': 133,
+  'Choose where block rewards go. Paste an address from your BLAKE2b node, which is on its own private chain. The gateway will not mine until this is set.': 134,
+  'Choose where block rewards go. Paste an address from your BLAKE2b node, which is on the public BLAKE2b test network. The gateway will not mine until this is set.': 135,
+  'An address from your BLAKE2b node. Every block this gateway mines pays here.': 136,
+  'Must be a test-chain address: tb1 on the public test network, or m, n or 2 on either chain': 137,
 } as const
 
 /**

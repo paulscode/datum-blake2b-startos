@@ -14,7 +14,7 @@ const notes =
   'Nothing you have set is changed by this update.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:21',
+  version: '1.0.0:22',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
