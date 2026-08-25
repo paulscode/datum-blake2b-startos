@@ -133,12 +133,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const store = await storeJson.read().const(effects)
 
-  // Record it for the actions. They run outside this function, without the
-  // node's volume mounted, so they cannot work the chain out for themselves and
-  // would otherwise have to guess what a valid payout address looks like.
-  if (store?.detectedChain !== chain) {
-    await storeJson.merge(effects, { detectedChain: chain })
-  }
 
   const headline = knotsConf
     ?.split('\n')

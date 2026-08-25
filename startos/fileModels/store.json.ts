@@ -10,12 +10,6 @@ const shape = z.object({
   // the user is prompted rather than having to find it.
   poolAddress: z.string().catch(''),
 
-  // Which chain the node was on the last time this service started, written by
-  // main.ts from the node's own config. Not a setting: it exists so an action,
-  // which has no mount of the node's volume, can still tell a user what kind of
-  // address to paste in. Absent before the first start.
-  detectedChain: z.enum(['regtest', 'testnet4']).optional().catch(undefined),
-
   // Password for the dashboard's admin pages, which is what makes the connected
   // miners visible at all. Empty disables them, which is DATUM's own semantics
   // for a blank admin_password rather than a convention invented here. Generated
