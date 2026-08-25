@@ -3,6 +3,9 @@ import { CONFIG_GROUP, i18n, readGroup, sdk, writeGroup } from './_shared'
 
 const { InputSpec, Value } = sdk
 
+/** Matches the `.catch()` on `vardiffMin` in the store schema. */
+const DEFAULT_VARDIFF_MIN = 64
+
 const inputSpec = InputSpec.of({
   vardiff_min: Value.number({
     name: i18n('Minimum Difficulty'),
@@ -170,9 +173,14 @@ export const stratumConfig = sdk.Action.withInput(
 
   async ({ effects, input }) => {
     const { vardiff_min, ...rest } = input as any
-    if (typeof vardiff_min === 'number') {
-      await storeJson.merge(effects, { vardiffMin: vardiff_min })
-    }
+    // Cleared means back to the default, not "keep what was there". Unlike the
+    // fields in the `stratum` group this one cannot be absent: its schema is a
+    // plain number with a `.catch(64)`, so there is no unset state to return to.
+    // Treating a cleared field as "keep" would make this the one field in the
+    // form that cannot be undone.
+    await storeJson.merge(effects, {
+      vardiffMin: typeof vardiff_min === 'number' ? vardiff_min : DEFAULT_VARDIFF_MIN,
+    })
     await writeGroup(effects, 'stratum', rest)
   },
 )
