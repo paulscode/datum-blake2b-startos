@@ -3,8 +3,54 @@
 DATUM Gateway serving Sia-style BLAKE2b work, so an existing Sia-compatible ASIC can
 mine the experimental BLAKE2b Bitcoin Knots chain. Packaged for StartOS 0.4.0.x.
 
-**Regtest only**, and solo mining only: pooled BLAKE2b is not possible today because
-the pool server is closed-source and SHA256d-only.
+**Follows whichever chain the node is on** (regtest or testnet4), and **solo mining
+only**: pooled BLAKE2b is not possible today because the pool server is
+closed-source and SHA256d-only.
+
+The chain is not a setting here. It is read from the node's own generated
+`bitcoin.conf` through the read-only mount this package already has, because
+bitcoind keeps each chain's data, including its RPC cookie, in a subdirectory
+named for that chain. Reading it rather than duplicating it means the two cannot
+drift; the node regenerates that file on every start and the reactive read
+restarts the gateway when it changes. This used to be hardcoded to `regtest`,
+which broke silently the moment the node was switched to testnet4: the cookie was
+never found and the gateway ran with no RPC credentials at all.
+
+Pooled mining is worth restating because it comes up: no DATUM pool can serve this
+chain, and that is not a matter of anyone adding an endpoint. A pool validates
+shares against the chain's proof of work, so a BLAKE2b share is unintelligible to
+a SHA256d pool. GridPool's `datum.test.gridpool.net:3009` is ordinary testnet4 and
+cannot help.
+
+## The dashboard's admin pages
+
+DATUM gates its most useful pages on `admin_password`, and blank disables them.
+Measured with no password set: `/clients`, `/threads` and `/config` all return
+**401 with no way to authenticate**, leaving only the status page. `/clients` is
+the one that matters, since it is the per-miner table: thread and client id,
+remote host, worker name, vardiff, accepted and rejected share difficulty,
+hashrate and user agent. Without it the dashboard cannot answer "is my miner
+working".
+
+So the package generates a password on install rather than prompting for one:
+there is no answer only the user can give, and a blank value is a strictly worse
+default. The **Dashboard Password** action shows it, changes it, or clears it to
+turn the pages off again. The username is `admin`, which DATUM hardcodes.
+
+DATUM stores the password as plaintext in its own config and authenticates with
+HTTP digest (`MHD_digest_auth_check2`), so writing it into the config is the
+intended path rather than a workaround. Confirmed by reading `datum_conf.c` and
+`datum_api.c`: the usual hazard with credentials in config files is an app
+expecting a salted hash, and this one does not.
+
+`modify_conf` stays `false`. The config is regenerated from the StartOS settings
+on every start, so anything the dashboard wrote into it would be discarded on the
+next restart, and offering an edit box over a file about to be overwritten is
+worse than not offering one.
+
+Verified with a real login against the live testnet4 chain: no credentials 401,
+correct digest 200 with the miner table, wrong password 401, and a connected CPU
+miner appearing in `/clients` with its worker name, vardiff and share counts.
 
 Maintained by Paul Lamb (<https://github.com/paulscode>). Not affiliated with Start9
 or OCEAN.
@@ -114,6 +160,7 @@ out on the host.
 | Key | Default | Notes |
 |---|---|---|
 | `poolAddress` | empty | where block rewards go. Set with the **Set Payout Address** action |
+| `adminPassword` | generated on install | gates the dashboard's `/clients`, `/threads` and `/config` pages. Blank turns them off |
 | `vardiffMin` | 64 | starting share difficulty; vardiff adapts from here |
 
 `poolAddress` is prompted as a **critical task on install**, which blocks the service

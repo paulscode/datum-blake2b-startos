@@ -27,3 +27,12 @@ export const dataDir = '/data'
 
 // Where this container mounts the node's volume, read-only, to read its cookie.
 export const knotsMountpoint = '/knots'
+
+// DATUM's dashboard admin user is not configurable: `datum_conf.c` documents the
+// admin_password option as "username 'admin'".
+export const dashboardUser = 'admin'
+
+// Password shape for the dashboard. Alphanumeric on purpose: it is typed into a
+// browser's HTTP-auth prompt, and DATUM also folds it into a CSRF token, so
+// punctuation buys nothing and costs transcription errors.
+export const defaultPasswordSpec = { charset: 'a-z,A-Z,0-9', len: 24 } as const

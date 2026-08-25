@@ -1,7 +1,7 @@
 export const DEFAULT_LANG = 'en_US'
 
 const dict = {
-  'Starting Datum Gateway BLAKE2b (regtest)': 0,
+  'Starting Datum Gateway BLAKE2b': 0,
   'Stratum': 1,
   'Point your BLAKE2b ASIC at this address': 2,
   'Dashboard': 3,
@@ -35,6 +35,16 @@ const dict = {
   'Compatibility Report': 31,
   'Copy this and share it in the Bitcoin section of paulscode.com (a free account is needed to post), or open a GitHub issue if you prefer. Nothing is sent anywhere on its own.': 32,
   'Report': 33,
+  'Dashboard password': 34,
+  'The password for the dashboard’s admin pages. The username is always “admin”. Leave it as it is to keep the current one, or use Generate for a new one. Clearing it turns the admin pages off.': 35,
+  'Dashboard Password': 36,
+  'Show or change the password for the dashboard’s admin pages, which is what lets you see connected miners.': 37,
+  'The gateway restarts to apply a change. Mining hardware reconnects on its own.': 38,
+  'The dashboard’s admin pages are on. Sign in with the username and password below to see your connected miners.': 39,
+  'The dashboard’s admin pages are off. The dashboard still shows gateway status, but not the list of connected miners.': 40,
+  'Username': 41,
+  'Password': 42,
+  '(admin pages disabled)': 43,
 } as const
 
 /**

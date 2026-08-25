@@ -3,6 +3,8 @@ import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { manifest as knotsManifest } from 'knots-blake2b-startos/startos/manifest'
 import {
+  chains as knotsChains,
+  defaultChain as knotsDefaultChain,
   rpcHostId as knotsRpcHostId,
   rpcPort as knotsRpcPort,
 } from 'knots-blake2b-startos/startos/utils'
@@ -21,7 +23,7 @@ import {
 const KNOTS_PKG = 'knots-blake2b'
 
 export const main = sdk.setupMain(async ({ effects }) => {
-  console.info(i18n('Starting Datum Gateway BLAKE2b (regtest)'))
+  console.info(i18n('Starting Datum Gateway BLAKE2b'))
 
   // Resolve the node over the LXC bridge from its binding's own address list.
   // Not `net.assignedPort`, which silently resolves null the day the dependency
@@ -62,20 +64,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const rootfs = await subcontainer.rootfs
 
-  // bitcoind rewrites the cookie on every start, so treat a change as a reason
-  // to restart the gateway. Absent means the node is down: let the dial fail and
-  // the health check go red rather than fabricating credentials.
-  const cookie = await FileHelper.string(
-    `${rootfs}${knotsMountpoint}/regtest/.cookie`,
-  )
-    .read(
-      (c) => c,
-      (prev, next) => next === null || prev === next,
-    )
-    .const(effects)
-
-  const store = await storeJson.read().const(effects)
-
   // The block at the activation height must carry the node's headline somewhere
   // in its coinbase or it is rejected `bad-headline`. DATUM does not inject
   // `coinbaseaux.blake2b_headline` and upstream closed the PR that would have
@@ -90,6 +78,35 @@ export const main = sdk.setupMain(async ({ effects }) => {
       (prev, next) => next === null || prev === next,
     )
     .const(effects)
+
+  // Which chain the node is on, taken from the node's own generated config
+  // rather than configured here. bitcoind keeps each chain's data, including its
+  // RPC cookie, in a subdirectory named for that chain, so this decides where to
+  // look for the cookie. Reading it instead of duplicating it means the two
+  // cannot drift: the node package regenerates that file on every start, and the
+  // reactive read above restarts the gateway when it changes.
+  //
+  // This used to be hardcoded to `regtest`, which broke silently the moment the
+  // node was switched to testnet4: the cookie was simply never found and the
+  // gateway ran with no RPC credentials.
+  const chain =
+    knotsChains.find((c: string) =>
+      knotsConf?.split('\n').some((l) => l.trim() === `${c}=1`),
+    ) ?? knotsDefaultChain
+
+  // bitcoind rewrites the cookie on every start, so treat a change as a reason
+  // to restart the gateway. Absent means the node is down: let the dial fail and
+  // the health check go red rather than fabricating credentials.
+  const cookie = await FileHelper.string(
+    `${rootfs}${knotsMountpoint}/${chain}/.cookie`,
+  )
+    .read(
+      (c) => c,
+      (prev, next) => next === null || prev === next,
+    )
+    .const(effects)
+
+  const store = await storeJson.read().const(effects)
 
   const headline = knotsConf
     ?.split('\n')
@@ -106,6 +123,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     // tag, which is correct for every block except the activation block.
     ...(headline ? { BLAKE2B_HEADLINE: headline } : {}),
     VARDIFF_MIN: String(store?.vardiffMin ?? 64),
+    ADMIN_PASSWORD: store?.adminPassword ?? '',
   }
 
   // Absent means absent. Write nothing rather than a placeholder address that

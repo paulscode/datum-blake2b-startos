@@ -10,6 +10,12 @@ const shape = z.object({
   // the user is prompted rather than having to find it.
   poolAddress: z.string().catch(''),
 
+  // Password for the dashboard's admin pages, which is what makes the connected
+  // miners visible at all. Empty disables them, which is DATUM's own semantics
+  // for a blank admin_password rather than a convention invented here. Generated
+  // on install so the dashboard is useful without the user doing anything.
+  adminPassword: z.string().catch(''),
+
   // Starting share difficulty. Vardiff adapts from here; 64 lets even a slow
   // hasher produce shares immediately on connect.
   vardiffMin: z.number().int().positive().catch(64),

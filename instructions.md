@@ -184,3 +184,17 @@ point.
 So a GPU miner for this chain is possible but nobody has written one yet. It would
 mean teaching an existing miner the other dialect, not finding the right setting.
 
+
+## Seeing your miners
+
+The dashboard's **Clients** page lists everything connected to the gateway: the
+worker name, its share difficulty, how many shares it has had accepted and
+rejected, and its hashrate. That is the page that answers "is my miner actually
+working".
+
+It asks for a username and password. The username is `admin`, and the password is
+in the **Dashboard Password** action, which also lets you change it. A password is
+created for you when the service is installed, so this works without any setup.
+
+Clearing the password in that action turns those pages off again. The main status
+page never asks for anything.

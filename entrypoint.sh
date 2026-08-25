@@ -112,6 +112,18 @@ SUBMITTED_DIR="$DATADIR/submitted"
 rm -rf "$SUBMITTED_DIR"
 mkdir -p "$SUBMITTED_DIR"
 
+# The dashboard's admin pages are gated on this. Blank is DATUM's own way of
+# disabling them, so an empty value here is a real setting rather than a missing
+# one. JSON-escape it: it is generated alphanumeric, but a user may set their own
+# and a stray quote would produce a config file the gateway cannot parse, which
+# looks like a crash rather than a typo.
+ADMIN_PASSWORD_JSON=$(printf '%s' "${ADMIN_PASSWORD:-}" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
+# modify_conf stays false on purpose. This file is regenerated from the StartOS
+# settings on every start, so anything the dashboard wrote into it would be
+# silently discarded on the next restart. Letting the UI edit a file that is
+# about to be overwritten is worse than not offering it.
+
 cat > "$CONF" <<JSON
 {
 	"bitcoind": {
@@ -134,7 +146,7 @@ cat > "$CONF" <<JSON
 		"save_submitblocks_dir": "${SUBMITTED_DIR}"
 	},
 	"api": {
-		"admin_password": "",
+		"admin_password": "${ADMIN_PASSWORD_JSON}",
 		"listen_port": ${API_PORT},
 		"modify_conf": false
 	},
@@ -152,6 +164,11 @@ JSON
 
 echo "datum-blake2b: pinned commit $(cat /etc/datum-pinned-commit)"
 echo "datum-blake2b: node=${RPC_URL} stratum=${STRATUM_PORT} coinbase_tag='${COINBASE_TAG}'"
+if [ -n "${ADMIN_PASSWORD:-}" ]; then
+    echo "datum-blake2b: dashboard admin pages enabled (user 'admin')"
+else
+    echo "datum-blake2b: dashboard admin pages disabled (no password set)"
+fi
 
 # The gateway exits if the node is not there at startup, so wait for it.
 for i in $(seq 1 "${RPC_WAIT_SECONDS:-120}"); do
