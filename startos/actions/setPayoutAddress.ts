@@ -88,10 +88,17 @@ export const setPayoutAddress = sdk.Action.withInput(
           `action gives you one.`,
       )
     }
-    if (!/^[mn2][a-km-zA-HJ-NP-Z1-9]{25,39}$/.test(addr)) {
+    // Must match the input spec's pattern above. This check exists because the
+    // spec's pattern is advisory on some paths (a restore, or a value set before
+    // the pattern was widened), not as a second, stricter opinion. Keeping the
+    // two in step matters: they disagreed for one revision and the form accepted
+    // a tb1 address that this then rejected.
+    if (!/^(tb1[a-z0-9]{25,87}|[mn2][a-km-zA-HJ-NP-Z1-9]{25,39})$/.test(addr)) {
       throw new Error(
-        `Not a usable regtest address: ${addr}. It must start with m, n or 2. ` +
-          `A mainnet address here would send block rewards somewhere you may not control.`,
+        `Not a usable test-chain address: ${addr}. Use tb1... on the public ` +
+          `BLAKE2b test network, or an address starting with m, n or 2 on ` +
+          `either chain. A mainnet address here would send block rewards to a ` +
+          `key you may not control, on a chain this will never pay.`,
       )
     }
 

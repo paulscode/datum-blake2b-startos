@@ -41,8 +41,11 @@ fi
 # the first one it gives. It is the user's own node and their own wallet, so this
 # is not inventing an address, only saving them a step.
 #
-# Legacy on purpose: DATUM's address parser understands the bc and tb bech32
-# prefixes only (datum_utils.c), so a regtest bcrt1 address is rejected downstream.
+# Address type follows the chain, for the same reason the node's Get Payout
+# Address action does: DATUM's parser understands bech32 only for the bc and tb
+# prefixes (datum_utils.c), so a regtest bcrt1 address is rejected downstream
+# while testnet4's tb1 goes straight through. Legacy is the regtest workaround,
+# not a preference, and it should not follow onto a chain that does not need it.
 POOL_ADDRESS_FILE="$DATADIR/payout_address"
 if [ -z "${POOL_ADDRESS:-}" ] && [ -s "$POOL_ADDRESS_FILE" ]; then
     POOL_ADDRESS="$(cat "$POOL_ADDRESS_FILE")"
@@ -56,12 +59,25 @@ if [ -z "${POOL_ADDRESS:-}" ] && [ "${AUTO_PAYOUT_FROM_NODE:-0}" = "1" ] \
             --post-data="{\"jsonrpc\":\"1.0\",\"id\":\"init\",\"method\":\"$1\",\"params\":$2}" \
             "$RPC_URL" 2>/dev/null || true
     }
+    # Which address type to ask for. regtest cannot use bech32 here, because
+    # DATUM's parser does not know the bcrt prefix; every other chain can and
+    # should. Asked of the node rather than configured, since this path is the
+    # Umbrel and plain-Docker one where nothing has told us the chain.
+    _chain="$(_rpc getblockchaininfo '[]' \
+        | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
+    if [ "${_chain:-regtest}" = "regtest" ]; then
+        _addrtype=legacy
+    else
+        _addrtype=bech32
+    fi
+    echo "datum-blake2b: chain=${_chain:-unknown}, asking for a $_addrtype address"
+
     for _ in $(seq 1 30); do
         # Whichever of these two applies is the one that works; the other fails
         # harmlessly. Trying both avoids having to ask first.
         _rpc loadwallet   '["mining"]' >/dev/null
         _rpc createwallet '["mining"]' >/dev/null
-        _addr="$(_rpc getnewaddress '["","legacy"]' \
+        _addr="$(_rpc getnewaddress "[\"\",\"$_addrtype\"]" \
             | sed -n 's/.*"result":"\([^"]*\)".*/\1/p')"
         [ -n "$_addr" ] && break
         sleep 2
