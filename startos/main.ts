@@ -22,6 +22,31 @@ import {
 // relied on; its external port is assigned at runtime and must never be assumed.
 const KNOTS_PKG = 'knots-blake2b'
 
+/**
+ * Pull one figure off the gateway's status page.
+ *
+ * `wget` rather than `curl`: the runtime image carries wget and not curl, unlike
+ * the official package's. Returns an empty string on any failure, which the
+ * callers treat as "not available" rather than "unhealthy".
+ */
+async function scrape(
+  sub: { exec: (cmd: string[]) => Promise<{ stdout: unknown }> },
+  port: number,
+  label: string,
+  strip: string,
+): Promise<string> {
+  try {
+    const { stdout } = await sub.exec([
+      'sh',
+      '-c',
+      `wget -q -T 3 -O - 127.0.0.1:${port} | grep -A1 '${label}' | tail -n 1 | sed 's/${strip}//g'`,
+    ])
+    return String(stdout).trim()
+  } catch {
+    return ''
+  }
+}
+
 export const main = sdk.setupMain(async ({ effects }) => {
   console.info(i18n('Starting Datum Gateway BLAKE2b'))
 
@@ -124,6 +149,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
     ...(headline ? { BLAKE2B_HEADLINE: headline } : {}),
     VARDIFF_MIN: String(store?.vardiffMin ?? 64),
     ADMIN_PASSWORD: store?.adminPassword ?? '',
+    // Everything the config actions set, as one JSON object that the entrypoint
+    // merges over the config it generates. One variable rather than forty keeps
+    // the Umbrel path (which has no actions and sets none of this) unchanged,
+    // and means adding a setting touches the store shape and a form, not four
+    // places. Unset keys are absent rather than null, so DATUM's own defaults
+    // apply instead of ours.
+    DATUM_SETTINGS: JSON.stringify(store?.config ?? {}),
   }
 
   // Absent means absent. Write nothing rather than a placeholder address that
@@ -190,6 +222,68 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }),
         },
         requires: ['gateway'],
+      })
+      /**
+       * Dashboard reachability, and the two figures the official Datum Gateway
+       * package puts on its service page. A user coming from that package
+       * expects to see connected clients and hashrate without opening the
+       * dashboard, and those are the numbers that say whether mining is working.
+       *
+       * Scraped from the gateway's own status page rather than an API, because
+       * DATUM exposes no unauthenticated JSON for them. The page itself needs no
+       * password; only /clients, /threads and /config do.
+       *
+       * A scrape that comes back empty reports success with a note rather than
+       * failure: the number not being available is not the service being
+       * unhealthy, and a red mark for a missing statistic would train users to
+       * ignore the health checks.
+       */
+      .addHealthCheck('dashboard', {
+        requires: ['gateway'],
+        ready: {
+          display: i18n('Dashboard'),
+          fn: () =>
+            sdk.healthCheck.checkPortListening(effects, uiPort, {
+              successMessage: i18n('The dashboard is ready'),
+              errorMessage: i18n('The dashboard is not ready'),
+            }),
+        },
+      })
+      .addHealthCheck('stratum-clients-connected', {
+        requires: ['gateway'],
+        ready: {
+          display: i18n('Miners connected'),
+          trigger: sdk.trigger.cooldownTrigger(10000),
+          fn: async () => {
+            const num = await scrape(
+              subcontainer,
+              uiPort,
+              'Total Work Subscriptions',
+              '[^0-9]',
+            )
+            return num
+              ? { result: 'success' as const, message: `${i18n('Miners connected')}: ${num}` }
+              : { result: 'success' as const, message: i18n('Could not read the number of miners') }
+          },
+        },
+      })
+      .addHealthCheck('estimated-hashrate', {
+        requires: ['gateway'],
+        ready: {
+          display: i18n('Estimated hashrate'),
+          trigger: sdk.trigger.cooldownTrigger(10000),
+          fn: async () => {
+            const num = await scrape(
+              subcontainer,
+              uiPort,
+              'Estimated Hashrate:',
+              '[^0-9.]',
+            )
+            return num
+              ? { result: 'success' as const, message: `${i18n('Estimated hashrate')}: ${num} Th/s` }
+              : { result: 'success' as const, message: i18n('Could not read the hashrate') }
+          },
+        },
       })
   )
 })

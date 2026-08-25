@@ -198,3 +198,20 @@ created for you when the service is installed, so this works without any setup.
 
 Clearing the password in that action turns those pages off again. The main status
 page never asks for anything.
+
+## Changing settings
+
+The **Config** actions hold the gateway's settings, grouped the way the official
+Datum Gateway service groups them: Bitcoind, Stratum, Mining, API, Logger and
+DATUM Pool. Anything you leave blank keeps the gateway's own default, so you can
+change one thing without having to fill in the rest.
+
+Three settings are not in there, because this service manages them for you: where
+your block rewards go (**Set Payout Address**), the dashboard password
+(**Dashboard Password**), and the text the first BLAKE2b block has to carry,
+which is read from your node.
+
+**DATUM Pool is the one to leave alone.** No pool can serve this chain: a pool
+checks shares against the chain's proof of work, and every DATUM pool does
+SHA256d, so none of them can check a BLAKE2b share. Leaving those settings empty
+means solo mining, which is what works.

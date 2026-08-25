@@ -55,6 +55,35 @@ miner appearing in `/clients` with its worker name, vardiff and share counts.
 Maintained by Paul Lamb (<https://github.com/paulscode>). Not affiliated with Start9
 or OCEAN.
 
+## Parity with the official package
+
+The settings, their groupings and their names follow
+[`Start9Labs/datum-gateway-startos`](https://github.com/Start9Labs/datum-gateway-startos)
+(MIT), so a user who knows that package finds the same things in the same places.
+Six config actions under a **Config** group: Bitcoind, Stratum, Mining, API,
+Logger, DATUM Pool. Plus the same two service-page figures, **Miners connected**
+and **Estimated hashrate**, scraped from the gateway's own status page.
+
+Deliberate differences, all of them because this package already owns the
+setting or because the setting cannot work here:
+
+| Official has | Here | Why |
+|---|---|---|
+| `pool_address` in the Mining form | its own **Set Payout Address** action | raised as a critical task on install, so mining cannot start with rewards going nowhere. One editor, not two |
+| `coinbase_tag_primary` in the Mining form | read from the node's `blake2b_headline` | the activation block is rejected unless its coinbase carries that exact string, and DATUM does not inject `coinbaseaux.blake2b_headline`. Editing it would be editing a consensus value unmarked |
+| `admin_password` via **Reset Password** | **Dashboard Password**, generated on install | same separation, but generated rather than prompted: unlike the payout address there is no answer only the user can give |
+| listen ports, RPC credentials, `modify_conf` | not offered | this package's own wiring. A user who changed them would break the service with no way to tell that is what happened |
+| a typed model of `datum_gateway_config.json` | settings in `store.json`, merged by `entrypoint.sh` | the image also has to run on Umbrel and plain Docker, which have no actions. One `DATUM_SETTINGS` variable carries the whole set; absent, DATUM's defaults apply |
+
+The merge refuses to write the settings above even if something hands them in,
+and refuses unknown groups, because `entrypoint.sh` is also the hand-run path.
+Verified: `admin_password`, `listen_port` and `pool_address` passed in
+`DATUM_SETTINGS` were all rejected while the package's real values survived.
+
+Extra here, with no counterpart upstream: the opt-in compatibility-capture port
+and its report, `pow_algorithm`, `save_submitblocks_dir`, and following the
+node's chain.
+
 ## How this differs from the official `datum` package
 
 | | official `datum` | this package |

@@ -162,6 +162,75 @@ cat > "$CONF" <<JSON
 }
 JSON
 
+# Merge the operator's settings over the config generated above.
+#
+# DATUM_SETTINGS is a JSON object shaped like datum.json, holding only what the
+# user has actually set. StartOS fills it from the config actions; on Umbrel and
+# plain Docker it is absent and this is a no-op, which is why the settings live
+# in one variable rather than forty.
+#
+# Merged rather than substituted: the generated config carries the things this
+# package owns (ports, credentials, the submit directory, the coinbase tag that
+# has to match the node's headline), and a user setting must not be able to
+# displace those. Only keys DATUM itself groups are merged, one level deep.
+if [ -n "${DATUM_SETTINGS:-}" ] && [ "${DATUM_SETTINGS}" != "{}" ]; then
+    python3 - "$CONF" <<'PY' || { echo "FATAL: could not apply settings" >&2; exit 1; }
+import json, os, sys
+
+path = sys.argv[1]
+with open(path) as f:
+    conf = json.load(f)
+
+try:
+    overrides = json.loads(os.environ.get("DATUM_SETTINGS") or "{}")
+except json.JSONDecodeError as e:
+    sys.exit(f"DATUM_SETTINGS is not valid JSON: {e}")
+
+# Keys this package owns. A user cannot reach them through the config actions,
+# but the check is here rather than only there: this file is also the Umbrel and
+# plain-Docker path, and an operator setting DATUM_SETTINGS by hand should not be
+# able to unwire the package without being told.
+RESERVED = {
+    "bitcoind": {"rpcuser", "rpcpassword", "rpcurl", "rpccookiefile"},
+    "stratum": {"listen_port", "listen_addr"},
+    "mining": {"pool_address", "coinbase_tag_primary", "pow_algorithm",
+               "save_submitblocks_dir"},
+    "api": {"listen_port", "listen_addr", "admin_password", "modify_conf"},
+    "logger": {"log_to_console", "log_to_stderr"},
+}
+
+# Only DATUM's own groups. An unknown one would otherwise be created in the
+# config file, where the gateway ignores it and the operator gets no hint that
+# their setting went nowhere.
+GROUPS = set(RESERVED) | {"datum"}
+
+applied = []
+for group, values in overrides.items():
+    if not isinstance(values, dict):
+        continue
+    if group not in GROUPS:
+        print(f"datum-blake2b: ignoring unknown group {group}", file=sys.stderr)
+        continue
+    # Only into a group the generated config already has, so a typo cannot
+    # invent a section.
+    section = conf.setdefault(group, {})
+    for key, value in values.items():
+        if value is None:
+            continue
+        if key in RESERVED.get(group, ()):
+            print(f"datum-blake2b: ignoring {group}.{key}, this package sets it",
+                  file=sys.stderr)
+            continue
+        section[key] = value
+        applied.append(f"{group}.{key}")
+
+with open(path, "w") as f:
+    json.dump(conf, f, indent=1)
+if applied:
+    print("datum-blake2b: applied settings " + ", ".join(sorted(applied)))
+PY
+fi
+
 echo "datum-blake2b: pinned commit $(cat /etc/datum-pinned-commit)"
 echo "datum-blake2b: node=${RPC_URL} stratum=${STRATUM_PORT} coinbase_tag='${COINBASE_TAG}'"
 if [ -n "${ADMIN_PASSWORD:-}" ]; then
