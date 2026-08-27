@@ -28,7 +28,7 @@ services:
   # regtest chain. No ports: RPC and P2P stay on the internal network. RPC
   # authenticates with the cookie the node writes itself.
   node:
-    image: paulscode/knots-blake2b:1.0.1
+    image: paulscode/knots-blake2b:1.0.2
     restart: unless-stopped
     stop_grace_period: 1m
     environment:
@@ -49,7 +49,7 @@ services:
   # The gateway: turns the node's block templates into Stratum work a Sia-style
   # BLAKE2b ASIC can mine.
   gateway:
-    image: paulscode/datum-blake2b:1.0.4
+    image: paulscode/datum-blake2b:1.0.5
     restart: unless-stopped
     depends_on: [node]
     stop_grace_period: 30s
@@ -74,7 +74,7 @@ services:
   # The opt-in compatibility-test port. A miner pointed here mines exactly as
   # normal, with its conversation recorded so it can be turned into a report.
   capture:
-    image: paulscode/datum-blake2b:1.0.4
+    image: paulscode/datum-blake2b:1.0.5
     restart: unless-stopped
     depends_on: [gateway]
     entrypoint: ["python3", "/usr/local/bin/stratumtap.py"]
@@ -90,7 +90,7 @@ services:
   # The page to open: the Stratum address, a link to the dashboard, and the
   # compatibility-report form.
   report:
-    image: paulscode/datum-blake2b:1.0.4
+    image: paulscode/datum-blake2b:1.0.5
     restart: unless-stopped
     depends_on: [gateway]
     entrypoint: ["python3", "/usr/local/bin/report_server.py"]

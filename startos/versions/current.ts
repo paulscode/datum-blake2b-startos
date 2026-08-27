@@ -11,10 +11,14 @@ const notes =
   'and shown in the new Dashboard Password action. ' +
   'This service now follows whichever chain your node is on, rather than assuming a private ' +
   'chain, so it works on the public BLAKE2b test network. ' +
-  'Nothing you have set is changed by this update.'
+  'Compatibility reports have two fixes. They now separate a block your node refused from '
+  + 'one that simply lost a race to another block at the same height, which mean very '
+  + 'different things and used to be counted together. And a report no longer fails on a '
+  + 'busy miner: one tester with a lot of rejected shares got an error instead of a report. '
+  + 'Nothing you have set is changed by this update.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:25',
+  version: '1.0.0:26',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
