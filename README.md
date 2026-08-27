@@ -367,39 +367,55 @@ every 2.05 s, and its 27 stale shares against the SC Box II's 2 say it was worki
 from a stale tip far more often. Both symptoms have the same cause. Its next report
 will say outright.
 
-### Why the miner reports more hardware errors than accepted shares
+### Hardware errors: what the evidence actually says
 
-The same reporter notes that the device's own UI shows `HW-Error` higher than
-`accepted`. That figure is device-side and not visible in a stratum capture, so
-what follows is consistent with the numbers rather than measured.
+The reporter's device shows `HW-Error` above `accepted` on this chain, and none of
+it at f2pool. An earlier version of this section said the miner was counting
+interrupted work as errors, because blocks here arrive every few seconds. **That
+explanation does not survive the device's own debug page**, and is withdrawn.
 
-The chain is thrashing, and the miner is doing it to itself:
+The per-chip breakdown is not the shape a work problem makes:
 
 ```
-session 2112 s
-  a block found      every  5.5 s   (383)
-  a clean_jobs       every  6.0 s   (350)   each block invalidates its own work
-  any new job        every  1.9 s   (1091)
+36 chips, 7 with any error, 609 total
+  worst single chip   422   69% of all errors
+  top three chips     593   97%
 ```
 
-It finds a block every five and a half seconds, and every one of those obsoletes
-the work it is currently doing. Anything the chip returns for a job that no longer
-exists cannot become a share, and a firmware counter has nowhere else to put it.
+Every chip receives the same work. A format or protocol mismatch, or jobs being
+replaced mid-computation, would land on all 36 roughly evenly, at about 17 each.
+Three chips carrying 97% is a hardware distribution. It also fits what the counter
+means in cgminer-lineage firmware: a nonce the chip returned that fails the host's
+re-hash, meaning the chip miscomputed. Work that is merely stale hashes correctly
+and never reaches that counter.
 
-This is regtest, not the device. `powLimit` here is about 2^255, so a share that
-clears the vardiff target essentially always clears the block target too, which is
-why blocks track shares. The block rate is therefore set by the share rate, and the
-share rate by vardiff. Nothing about it is a compatibility problem: 382 of 384
-shares and 346 of 383 blocks were accepted, and the 37 misses are same-height
-races.
+So the likely reading is three marginal chips, provoked by conditions here that a
+real pool does not create, rather than by anything wrong in the work:
 
-Two things would reduce it, in increasing order of effort. Raising `vardiffMin`
-lowers the share rate and with it the block rate, at the cost of a less
-representative test. Giving the chain a real difficulty is the proper fix and is
-the deferred work: any `powLimit` change invalidates the hardcoded regtest genesis,
-so it needs a re-mined one.
+| | here | a Sia pool |
+|---|---|---|
+| a new job | every 1.9 s (350 block-driven, 741 refreshes) | tens of seconds |
+| share difficulty | 64 to 2048 | far higher |
+| nonce returns per chip | constant | rare |
 
-**What the ratio should look like.** On regtest `powLimit` is about 2^255, so the
+Both raise how often a marginal chip is reloaded and how often it returns
+something, which is how many chances it gets to return something wrong.
+
+**The f2pool comparison narrows less than it looks.** It changes the work format,
+the difficulty, the job rate and the chain all at once, so it cannot separate "our
+work is wrong" from "our conditions provoke marginal silicon". Two settings can
+separate them on this chain, one variable at a time:
+
+- **`work_update_seconds`**, default 5, settable 1 to 120. At 60 the 741 non-clean
+  refreshes drop to roughly 35 while the 350 block-driven ones stay. A sharp fall
+  in errors points at reload churn.
+- **`vardiff_min`**. Raising it means fewer, harder shares, so fewer nonce returns
+  and a slower chain. A fall points at return rate.
+
+Testnet4 answers it too and is worth doing, but it changes every one of those at
+once, so it confirms rather than isolates.
+
+**What the ratio should look like.****What the ratio should look like.** On regtest `powLimit` is about 2^255, so the
 block target is trivially easy while the share target at vardiff 64 to 4096 is far
 harder. Any share a real miner gets accepted therefore also clears the block target,
 and blocks should track shares almost exactly. The A3's 107 blocks against 107

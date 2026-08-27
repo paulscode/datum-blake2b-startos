@@ -153,11 +153,20 @@ The A3 is the most encouraging of the four, because it has nothing in common wit
 the three Goldshells: different manufacturer, and stock CGminer rather than the
 vendor's own firmware. All four spoke to the gateway identically.
 
-**Your miner may report a lot of hardware errors, and that is this test chain
-rather than your miner.** Blocks here are found every few seconds, and every block
-your miner finds throws away the work it had in progress. Your miner's own screen
-counts that discarded work as errors. What matters is whether shares and blocks are
-being accepted, which the report tells you.
+**Your miner may report a lot of hardware errors here.** One tester saw that, and
+saw it stop when they pointed the same miner at a normal Sia pool. On their
+device's own chip page, nearly all of it came from three chips out of thirty-six,
+which is not what a problem with the work looks like: every chip gets the same
+work, so a problem with the work would show up on all of them.
+
+The likely reading is that this chain asks far more of a miner than a real pool
+does. It hands out new work every couple of seconds and the difficulty is very
+low, so each chip is reloaded and answers back constantly, and a chip that is
+marginal gets many more chances to slip.
+
+What matters is whether your shares and blocks are being accepted, which the
+report tells you. If those look healthy, the error count is not stopping you
+mining.
 
 **Some rejected shares are normal**, and the longer you run, the more you will see.
 A share is found for a particular block; if a new block turns up while your miner
