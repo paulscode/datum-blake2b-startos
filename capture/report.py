@@ -56,14 +56,6 @@ def submitted_blocks(directory, since=None):
     return sorted(set(out))
 
 
-def capture_start(rows):
-    """Absolute time the capture began, if it recorded one."""
-    for r in rows:
-        if r.get("note") == "capture started" and isinstance(r.get("epoch"), (int, float)):
-            return float(r["epoch"])
-    return None
-
-
 def ask_node(rpc_url, cookie_path, hashes):
     """Which of these blocks did the node actually accept into its chain?
 
@@ -125,19 +117,28 @@ def ask_node(rpc_url, cookie_path, hashes):
     return accepted, orphaned, refused, None
 
 
-def load(path):
-    out = []
+def iter_rows(path):
+    """Yield parsed capture lines one at a time.
+
+    Deliberately a generator. This used to build a list of every line, which on a
+    capture at its 8 MiB cap meant about 40,000 dicts and a peak of ~53 MB for
+    counters that need none of it. The report is wanted most by the miner having
+    the worst time, which is also the miner filling the capture fastest, so the
+    memory cost peaked exactly when the report had to work. One reporter got
+    "python3 terminated with signal SIGKILL" instead of a report.
+    """
     try:
-        for line in open(path):
-            line = line.strip()
-            if line:
+        with open(path) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
                 try:
-                    out.append(json.loads(line))
+                    yield json.loads(line)
                 except json.JSONDecodeError:
-                    pass
+                    continue
     except FileNotFoundError:
-        pass
-    return out
+        return
 
 
 def summarise(rows):
@@ -148,9 +149,18 @@ def summarise(rows):
         "methods": Counter(), "nonstandard": Counter(), "span": 0.0, "idle_period": None,
         "nsubscribe_params": None, "subscribes": 0, "resumes": 0,
         "first_submit": None, "reconnect_burst": 0, "capped": False,
+        "epoch": None, "rows": 0,
     }
     pending, conn_times = {}, []
     for r in rows:
+        # The header is not a recording. Counting it would make a capture that
+        # only ever got its own start line read as "something happened", which is
+        # exactly the case where a user has pointed the miner at the wrong port.
+        if r.get("note") == "capture started":
+            if isinstance(r.get("epoch"), (int, float)):
+                s["epoch"] = float(r["epoch"])
+            continue
+        s["rows"] += 1
         s["span"] = max(s["span"], r.get("t", 0))
         if r.get("note") == "connection":
             s["connections"] += 1
@@ -300,15 +310,16 @@ def main():
     ap.add_argument("--rpc-cookie", default="")
     a = ap.parse_args()
 
-    rows = load(a.wire)
-    if not rows:
+    # One streaming pass. "Is the capture empty" is answered by the row count the
+    # pass produces rather than by materialising it first to find out.
+    s = summarise(iter_rows(a.wire))
+    if not s["rows"]:
         print("No capture found yet.\n")
         print("Point your miner at the **Stratum (compatibility test)** address on the")
         print("Interfaces tab, let it run for a minute, then run this action again.")
         return 0
 
-    s = summarise(rows)
-    started = capture_start(rows)
+    started = s["epoch"]
     hashes = submitted_blocks(a.submitted_dir, started)
     acc, orph, ref, err = ask_node(a.rpc_url, a.rpc_cookie, hashes)
     blocks = {"submitted": len(hashes), "accepted": len(acc),
