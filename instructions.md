@@ -143,8 +143,8 @@ accepted over a two-hour session. The three that were not are the ordinary kind 
 rejection you get when the chain moves on while a share is in flight, not a sign
 of anything wrong.
 
-**Goldshell SC5 Pro** (firmware 2.2.0). Reported by a user, over a 16 hour run.
-166 of 190 shares accepted.
+**Goldshell SC5 Pro** (firmware 2.2.0). Reported by a user. 272 of 299 shares
+accepted, and the node accepted 199 of the 298 blocks it found.
 
 **Goldshell SC Box II** (firmware 2.2.2). Reported by a user. 382 of 384 shares
 accepted, and the node accepted 346 of the 383 blocks it found.

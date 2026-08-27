@@ -72,21 +72,33 @@ def ask_node(rpc_url, cookie_path, hashes):
     exactly the distinction the h1 version-bit bug lived in, where every share
     looked healthy and every block was rejected.
 
-    Returns (accepted, rejected, error) where error is set when the node could
-    not be asked at all, so a report can say "not checked" rather than "none".
+    Three outcomes, not two, because "not accepted" covers two situations that
+    mean opposite things:
+
+      accepted  the block is on the best chain
+      orphaned  the node knows the block but it is not on the best chain, which
+                on a fast chain means it lost a same-height race and is benign
+      refused   the node has never heard of it, so it rejected the block outright
+
+    Refused is the one that matters. The h1 version-bit bug produced nothing but
+    refusals, with healthy share stats above them, and a report that folds the two
+    together cannot tell a miner racing itself from a miner producing garbage.
+
+    Returns (accepted, orphaned, refused, error) where error is set when the node
+    could not be asked at all, so a report can say "not checked" rather than "none".
     """
     if not hashes:
-        return [], [], None
+        return [], [], [], None
     if not rpc_url or not cookie_path or not os.path.exists(cookie_path):
-        return [], [], "no RPC credentials"
+        return [], [], [], "no RPC credentials"
     try:
         with open(cookie_path) as fh:
             cookie = fh.read().strip()
     except OSError as exc:
-        return [], [], f"could not read the cookie ({exc})"
+        return [], [], [], f"could not read the cookie ({exc})"
 
     auth = base64.b64encode(cookie.encode()).decode()
-    accepted, rejected = [], []
+    accepted, orphaned, refused = [], [], []
     for h in hashes:
         body = json.dumps({"jsonrpc": "1.0", "id": "report",
                            "method": "getblockheader", "params": [h]}).encode()
@@ -96,20 +108,21 @@ def ask_node(rpc_url, cookie_path, hashes):
                      "Authorization": "Basic " + auth})
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                res = json.load(resp).get("result") or {}
-            # Known to the node and on the best chain. A block it rejected is not
-            # known at all; one it accepted but reorged away has confirmations -1,
-            # which is not the same thing and should not be counted as accepted.
-            if res.get("confirmations", -1) >= 1:
+                payload = json.load(resp)
+            res = payload.get("result")
+            if res is None:
+                # A JSON-RPC error in a 200 body: the node does not have it.
+                refused.append(h)
+            elif res.get("confirmations", -1) >= 1:
                 accepted.append(h)
             else:
-                rejected.append(h)
+                orphaned.append(h)
         except urllib.error.HTTPError:
-            # The node answers 500 with an error body for an unknown block.
-            rejected.append(h)
+            # The node answers 500 with an error body for a hash it has never seen.
+            refused.append(h)
         except (urllib.error.URLError, OSError, ValueError) as exc:
-            return accepted, rejected, f"the node could not be reached ({exc})"
-    return accepted, rejected, None
+            return accepted, orphaned, refused, f"the node could not be reached ({exc})"
+    return accepted, orphaned, refused, None
 
 
 def load(path):
@@ -211,6 +224,14 @@ def verdict(s, blocks=None):
     # A block the node accepted is the strongest statement this report can make,
     # and it is a different claim from accepted shares. Shares are the gateway's
     # opinion; a block in the chain is the node's.
+    # A refusal is the strongest negative signal in the report and outranks a
+    # healthy share count, which is exactly the shape the h1 bug had.
+    if blocks and blocks.get("refused") and blocks["error"] is None:
+        return (f"**Blocks are being refused.** The node would not accept "
+                f"{blocks['refused']} of {blocks['submitted']} blocks this miner "
+                f"found, while {s['accepted']} of {s['submits']} shares were "
+                "accepted. Healthy shares above refused blocks means the gateway "
+                "and the node disagree about the work, which is worth reporting.")
     if blocks and blocks["accepted"]:
         # The gateway records every block it submits, for every client on every
         # port. The capture sees one port. So more blocks than shares means
@@ -289,9 +310,10 @@ def main():
     s = summarise(rows)
     started = capture_start(rows)
     hashes = submitted_blocks(a.submitted_dir, started)
-    acc, rej, err = ask_node(a.rpc_url, a.rpc_cookie, hashes)
+    acc, orph, ref, err = ask_node(a.rpc_url, a.rpc_cookie, hashes)
     blocks = {"submitted": len(hashes), "accepted": len(acc),
-              "rejected": len(rej), "error": err, "windowed": started is not None}
+              "orphaned": len(orph), "refused": len(ref),
+              "error": err, "windowed": started is not None}
     dev = " ".join(x for x in (a.make, a.model) if x) or "(not given)"
 
     print("## ASIC compatibility report\n")
@@ -337,14 +359,15 @@ def main():
         if not blocks["windowed"]:
             print("  (this capture predates block-window tracking, so the count may"
                   " include an earlier run)")
-        if blocks["rejected"]:
-            print(f"- blocks the node did not accept: {blocks['rejected']}")
-            if blocks["accepted"]:
-                # Two blocks found at the same height is normal when blocks come
-                # this fast, and only one can win. Worth saying, because a bare
-                # count here looks like a fault and is not one.
-                print("  (normal when blocks come quickly: two found at the same"
-                      " height, and only one can be the chain)")
+        if blocks["orphaned"]:
+            print(f"- blocks that lost a race: {blocks['orphaned']}")
+            print("  (normal when blocks come quickly: two found at the same"
+                  " height, and only one can be the chain. The node accepted"
+                  " these, they just are not the chain)")
+        if blocks["refused"]:
+            print(f"- **blocks the node refused: {blocks['refused']}**")
+            print("  (this is the one that matters: the node would not take these"
+                  " at all, which is a real mismatch rather than a race)")
     print()
 
     print("### Dialect\n")

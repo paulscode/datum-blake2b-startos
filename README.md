@@ -243,7 +243,7 @@ with a home server and a miner, not people who have used a bug tracker.
 |---|---|---|---|---|---|---|
 | Goldshell HS-Box (SC mode) | 2.2.4 / MCB_V5_4 | yes | yes | 41 of 41 | yes | none |
 | Bitmain Antminer A3 | CGminer 4.9.0 | yes | yes | 158 of 161 | not reported | none |
-| Goldshell SC5 Pro | 2.2.0 / 30.50.SA | yes | yes | 166 of 190 | not reported | none |
+| Goldshell SC5 Pro | 2.2.0 / 30.50.SA | yes | yes | 272 of 299 | 199 of 298 | none |
 | Goldshell SC Box II | 2.2.2 / 20.10.SA | yes | yes | 382 of 384 | **346 of 383** | none |
 | NVIDIA GPU, `ccminer-tpfuemp -a sia` | 2026.07.2, CUDA 11.8 | connects | **rejects them** | 0 | 0 | n/a |
 
@@ -342,6 +342,30 @@ Reproduced here with two miners, one per port: 5 shares on the capture port and 
 blocks recorded, with the old wording crediting all 12 to "this miner". The report
 now refuses that claim and says why. Per-miner attribution is not recoverable, since
 a submitblock record is the block and says nothing about which client found it.
+
+### Refused blocks and raced blocks are not the same thing
+
+A block the report cannot place has two possible fates, and the report used to
+call both of them "did not accept":
+
+| | meaning |
+|---|---|
+| accepted | on the best chain |
+| lost a race | the node has it, it is just not the chain. Benign, and expected here |
+| **refused** | the node has never heard of it. It rejected the block outright |
+
+Only the third is a compatibility signal, and it is the one the `h1` version-bit
+bug produced: every block refused, every share healthy. Folding it in with racing
+meant the report could not tell a miner racing itself from a miner producing
+garbage, and the verdict now leads with a refusal when there is one rather than
+reporting a healthy share count above it.
+
+The SC5-Pro's second report predates the split, so its 99 unplaced blocks cannot
+be attributed retrospectively. Racing is the likely explanation and the numbers
+support it rather than prove it: it found a block every 4.8 s while jobs arrived
+every 2.05 s, and its 27 stale shares against the SC Box II's 2 say it was working
+from a stale tip far more often. Both symptoms have the same cause. Its next report
+will say outright.
 
 ### Why the miner reports more hardware errors than accepted shares
 
