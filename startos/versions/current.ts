@@ -15,10 +15,11 @@ const notes =
   + 'one that simply lost a race to another block at the same height, which mean very '
   + 'different things and used to be counted together. And a report no longer fails on a '
   + 'busy miner: one tester with a lot of rejected shares got an error instead of a report. '
-  + 'Nothing you have set is changed by this update.'
+  + 'Nothing you have set is changed by this update.' +
+  'The page this service serves can now choose the chain and payout address on platforms that have no settings form. On StartOS the existing actions remain the way to do both.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:26',
+  version: '1.0.0:27',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
