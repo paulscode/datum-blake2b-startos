@@ -69,5 +69,10 @@ RUN sha256sum /usr/local/bin/entrypoint.sh /usr/local/bin/report.py \
 
 VOLUME /data
 EXPOSE 23334 7152
+# Create the settings mountpoint owned by the runtime user. A named volume
+# inherits the ownership of the image directory it covers, so doing this here
+# is what makes a fresh volume writable without anything running as root.
+RUN mkdir -p /config && chown datum:datum /config
+
 USER datum
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

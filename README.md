@@ -170,6 +170,55 @@ parser understands the `bc` and `tb` bech32 prefixes only
 ([`datum_utils.c`](https://github.com/OCEAN-xyz/datum_gateway/blob/main/src/datum_utils.c)),
 so a regtest `bcrt1` address is rejected downstream.
 
+## Chain selection without a settings form
+
+StartOS has actions. Umbrel and plain Docker have nothing, so the page this image
+already serves gained a **Network** card: a chain dropdown and a payout address,
+and nothing else. Headline and peers are derived from the chain rather than
+offered, because they are consensus and curation, not preferences.
+
+The mechanism is a settings file both services read and watch:
+
+```
+/config/settings.json   {"chain": "...", "payout_address_<chain>": "..."}
+```
+
+The report container is the only writer, and writes via a temporary file and
+rename, because the readers watch by hash and would restart for a half-written
+one. `/config` is created in both Dockerfiles owned by the runtime user, which is
+what makes a fresh named volume writable without anything running as root.
+
+Three things this cost, all found by running it rather than reading it:
+
+**A watcher guarded on the file existing never starts.** The first time anyone
+uses the page there is no settings file, so a watcher that only runs when one is
+present is never running when the file appears. It now treats absent as a state
+and watches unconditionally.
+
+**PID 1 discards signals it has no handler for.** With `exec`, the service is
+PID 1, and `kill -TERM 1` did nothing to `datum_gateway`: it logged "restarting to
+apply" and carried on. bitcoind installs a handler and did restart, which made the
+bug look like a gateway problem rather than a signal one. The shell now stays
+PID 1, runs the service as a child, forwards `TERM` and `INT`, and waits.
+
+**Finding a cookie is not the same as having credentials.** Each chain keeps its
+own directory, so after a switch the previous chain's cookie is still on disk. The
+gateway restarts faster than the node and read the stale one, then every call came
+back 401 while the service looked healthy and simply never got a template. It now
+tries each candidate against `getblockchaininfo` and takes the first that answers,
+which also yields the chain, so what authenticated and what names the payout cache
+cannot disagree.
+
+Verified end to end on a live stack: regtest to testnet4 and back from the page,
+both services restarting themselves, per-chain addresses derived (`mvbAuPxS…` and
+`tb1q7jq3…`) and both retained, zero 401s after the switch, mining working
+afterwards, and `bcrt1`, mainnet and unknown-chain inputs all rejected without
+touching the stored settings.
+
+`bcrt1` is rejected on purpose despite being a valid regtest address: DATUM's
+parser only understands the `bc` and `tb` bech32 prefixes, so accepting one would
+crash-loop the gateway with "Could not generate output script for pool addr".
+
 ## Plain Docker
 
 `docker/` carries a compose file and instructions for running the pair on a Linux

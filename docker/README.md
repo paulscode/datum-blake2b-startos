@@ -58,6 +58,29 @@ HOST_IP=... DASHBOARD_PORT=8152 docker compose up -d
 
 The variable to set for each port is in the table below.
 
+## Choosing a chain
+
+The page has a **Network** card at the top with two choices:
+
+- **Private test chain (regtest)**, the default. Starts empty, blocks are instant,
+  nothing is shared with anyone.
+- **Public BLAKE2b test network (testnet4)**, shared with other testers. A real
+  chain, so the first sync takes a while.
+
+Pick one and press **Save and restart**. The node and the gateway notice and come
+back on the new chain by themselves; give them a minute and reload.
+
+**Switching keeps both.** Each chain has its own blocks, wallet and payout
+address, so switching back returns you to where you left off. Nothing is deleted.
+
+The same card takes a payout address. Leave it blank and your node is asked for
+one, which is the normal case. It is remembered per chain, because the wallets are
+separate: an address made on one chain belongs to a wallet the other never opens.
+
+The headline and the peer list are not settings. Both are decided by the chain,
+and testnet4 in particular requires an exact headline and a starting set of peers
+its own DNS seeds cannot supply, so the node sets them itself.
+
 ## Point your miner at it
 
 Set the pool in your miner's own web interface to the address the page shows:

@@ -6,6 +6,11 @@
 #
 #   HOST_IP=$(ip -4 route get 1.1.1.1 | grep -oP 'src \K\S+') docker compose up -d
 #
+# Chain and payout address are set on the page this serves, not here. They live in
+# a shared `config` volume that the node and gateway both read and watch: changing
+# them stops those two, and `restart: unless-stopped` brings them back on the new
+# settings. Nothing in here holds a Docker socket to do that.
+#
 # HOST_IP is the address a miner is told to connect to. It has to be passed in:
 # a container can only see its own address on the Docker network, and most ASIC
 # firmware cannot resolve a .local name, so guessing it wrong fails silently.
@@ -45,6 +50,7 @@ services:
       PRUNE: "550"
     volumes:
       - node-data:/data
+      - config:/config:ro
 
   # The gateway: turns the node's block templates into Stratum work a Sia-style
   # BLAKE2b ASIC can mine.
@@ -67,6 +73,9 @@ services:
     volumes:
       - gateway-data:/data
       - node-data:/node:ro
+      # Chain and payout address, read and watched. A change here stops the
+      # gateway so the restart policy brings it back on the new settings.
+      - config:/config:ro
     ports:
       - "${STRATUM_PORT:-23336}:23336"       # Stratum, for the miner
       - "${DASHBOARD_PORT:-7152}:7152"       # the gateway's own mining dashboard
@@ -108,6 +117,8 @@ services:
       COOKIE_PATH: /node/regtest/.cookie
     volumes:
       - gateway-data:/data
+      # The only writer. The page saves here; node and gateway watch it.
+      - config:/config
       - node-data:/node:ro
     ports:
       - "${PAGE_PORT:-7153}:7154"
@@ -115,3 +126,5 @@ services:
 volumes:
   node-data:
   gateway-data:
+  # Chain and payout address, written by the page, read by the node and gateway.
+  config:

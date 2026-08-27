@@ -12,7 +12,9 @@ implementation of the parsing and both platforms get identical output.
 
 import argparse
 import html
+import json
 import os
+import re
 import subprocess
 import sys
 import urllib.parse
@@ -54,6 +56,7 @@ PAGE = """<!doctype html>
 <h1>Datum Gateway BLAKE2b</h1>
 <p class="sub">Solo mining on a private BLAKE2b test chain.</p>
 
+{settings_card}
 <div class="card">
 <h2 style="margin-top:0">Point your miner here</h2>
 <p>In your miner's own web interface, set the pool to:</p>
@@ -122,6 +125,38 @@ HOST_UNKNOWN_NOTE = """<p><strong>Substitute your server's IP address for
 a <code>.local</code> name fails silently and the miner reports only that the pool
 is not ready. You can find the address on your server's settings page.</p>"""
 
+
+# The only settings this page offers, and deliberately the only ones. The headline
+# and the peer list are consensus and curation respectively, not preferences: the
+# node derives both from the chain. Offering them would be offering someone a box
+# in which to break their own chain.
+SETTINGS_CARD = """<div class="card">
+<h2 style="margin-top:0">Network</h2>
+<form method="post" action="/settings">
+<label for="chain">Which chain to mine</label>
+<select id="chain" name="chain">
+  <option value="regtest"{sel_regtest}>Private test chain (regtest), starts empty, instant blocks</option>
+  <option value="testnet4"{sel_testnet4}>Public BLAKE2b test network (testnet4), shared with other testers</option>
+</select>
+<label for="payout">Payout address for {chain} <span style="font-weight:400;opacity:.7">(optional)</span></label>
+<input id="payout" name="payout" value="{payout}" placeholder="leave blank and your node is asked for one">
+<button type="submit">Save and restart</button>
+</form>
+<p style="opacity:.75;font-size:.9rem">Switching chains keeps both. Each has its own
+blocks, wallet and payout address, so switching back returns you to where you left
+off. The public network is a real chain and takes a while to download the first
+time.</p>
+{settings_msg}
+</div>
+"""
+
+SETTINGS_SAVED = """<p style="color:#1a7f37"><strong>Saved.</strong> The node and
+gateway are restarting to pick this up. Give them a minute, then reload.</p>"""
+
+SETTINGS_READONLY = """<p style="opacity:.75"><strong>Read-only here.</strong> This
+copy has no settings file mounted, so the chain is whatever this deployment was
+started with. On StartOS use the Select Chain action instead.</p>"""
+
 REPORT_BLOCK = """<div class="card">
 <h2 style="margin-top:0">Your report</h2>
 <p>Copy all of this and share it in the Bitcoin section of the forum,
@@ -135,10 +170,73 @@ does just as well.</p>
 """
 
 
+
+CHAINS = ("regtest", "testnet4")
+# Deliberately strict. This value ends up in the gateway's config as the sole
+# destination for block rewards, so a typo is not a formatting problem.
+# `bcrt1` is excluded on purpose even though it is a perfectly good regtest
+# address. DATUM's parser understands bech32 only for the `bc` and `tb` prefixes
+# (datum_utils.c), so a bcrt1 address is accepted here and then kills the gateway
+# with "Could not generate output script for pool addr" on every start. Base58
+# regtest addresses share testnet's prefixes and work fine, which is why the
+# node hands those out on regtest.
+ADDRESS_RE = re.compile(r"^(?:[mn2][1-9A-HJ-NP-Za-km-z]{25,39}|"
+                        r"tb1[02-9ac-hj-np-z]{8,87})$")
+
+
+def read_settings(path):
+    try:
+        with open(path) as fh:
+            d = json.load(fh)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write_settings(path, updates):
+    """Merge and write. Read-modify-write so one form cannot drop another's keys.
+
+    Written to a temporary file and renamed, because the node and the gateway are
+    both watching this file by hash and a half-written one would be read as a
+    change worth restarting for.
+    """
+    d = read_settings(path)
+    d.update(updates)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(d, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    os.replace(tmp, path)
+    return d
+
+
 class Handler(BaseHTTPRequestHandler):
     cfg = {}
 
-    def _render(self, values=None, report=None):
+    def _settings_card(self, msg=""):
+        path = self.cfg["settings_file"]
+        # Writable means a settings file is mounted and this deployment is one
+        # where changing it does something. On StartOS it is not, and the card
+        # says so rather than offering a control that would be ignored.
+        writable = bool(path) and os.access(os.path.dirname(path) or ".", os.W_OK)
+        if not writable:
+            return SETTINGS_CARD.format(
+                chain="this chain", payout="", sel_regtest="", sel_testnet4="",
+                settings_msg=SETTINGS_READONLY,
+            ).replace("<button type=\"submit\">Save and restart</button>", "")
+        s = read_settings(path)
+        chain = s.get("chain") or "regtest"
+        if chain not in CHAINS:
+            chain = "regtest"
+        return SETTINGS_CARD.format(
+            chain=html.escape(chain),
+            payout=html.escape(s.get(f"payout_address_{chain}", "")),
+            sel_regtest=" selected" if chain == "regtest" else "",
+            sel_testnet4=" selected" if chain == "testnet4" else "",
+            settings_msg=msg,
+        )
+
+    def _render(self, values=None, report=None, msg=""):
         values = values or {}
         host = self.cfg["host_ip"]
         body = PAGE.format(
@@ -154,6 +252,7 @@ class Handler(BaseHTTPRequestHandler):
             capture_port=self.cfg["capture_port"],
             dashboard_port=self.cfg["dashboard_port"],
             report=REPORT_BLOCK.format(body=html.escape(report)) if report else "",
+            settings_card=self._settings_card(msg),
             **{f: html.escape(values.get(f, "")) for f in FIELDS},
         ).encode()
         self.send_response(200)
@@ -172,6 +271,10 @@ class Handler(BaseHTTPRequestHandler):
         length = min(int(self.headers.get("Content-Length") or 0), 64 * 1024)
         raw = self.rfile.read(length).decode("utf8", "replace")
         form = urllib.parse.parse_qs(raw)
+
+        if self.path.split("?")[0] == "/settings":
+            return self._save_settings(form)
+
         values = {f: (form.get(f) or [""])[0].strip() for f in FIELDS}
 
         argv = [sys.executable, self.cfg["report_py"], self.cfg["capture_log"],
@@ -198,6 +301,34 @@ class Handler(BaseHTTPRequestHandler):
             report = f"Could not generate the report: {exc}"
         self._render(values, report)
 
+    def _save_settings(self, form):
+        path = self.cfg["settings_file"]
+        chain = (form.get("chain") or [""])[0].strip()
+        payout = (form.get("payout") or [""])[0].strip()
+
+        if chain not in CHAINS:
+            return self._render(msg='<p style="color:#b42318">Unknown chain.</p>')
+        # An address is validated before it is stored, not after. Everything the
+        # gateway mines pays here, and the failure mode for a wrong one is a
+        # crash loop with "Could not generate output script for pool addr".
+        if payout and not ADDRESS_RE.match(payout):
+            return self._render(
+                msg='<p style="color:#b42318">That does not look like an address '
+                    'for a test chain. Leave it blank to have your node supply '
+                    'one.</p>')
+
+        updates = {"chain": chain}
+        if payout:
+            updates[f"payout_address_{chain}"] = payout
+        try:
+            write_settings(path, updates)
+        except OSError as exc:
+            return self._render(
+                msg=f'<p style="color:#b42318">Could not save: {html.escape(str(exc))}</p>')
+        print(f"[report] settings saved: chain={chain}"
+              + (" payout=set" if payout else ""), flush=True)
+        return self._render(msg=SETTINGS_SAVED)
+
     def log_message(self, fmt, *a):
         # One line per request on stdout, so the app's logs show activity without
         # the default's duplicated timestamp.
@@ -222,6 +353,10 @@ def main():
     ap.add_argument("--submitted-dir", default="/data/submitted")
     ap.add_argument("--rpc-url", default=os.environ.get("RPC_URL", ""))
     ap.add_argument("--rpc-cookie", default=os.environ.get("COOKIE_PATH", ""))
+    # Where the chain and payout settings live. Shared with the node, which reads
+    # the same file. Absent or unwritable, the page shows the settings read-only.
+    ap.add_argument("--settings-file",
+                    default=os.environ.get("SETTINGS_FILE", "/config/settings.json"))
     a = ap.parse_args()
 
     host, port = a.listen.rsplit(":", 1)
@@ -232,6 +367,7 @@ def main():
         "capture_port": a.capture_port,
         "dashboard_port": a.dashboard_port,
         "host_ip": a.host_ip.strip(),
+        "settings_file": a.settings_file,
         "submitted_dir": a.submitted_dir,
         "rpc_url": a.rpc_url,
         "rpc_cookie": a.rpc_cookie,

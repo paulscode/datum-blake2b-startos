@@ -20,54 +20,61 @@ RPC_URL="${RPC_URL:-}"
 # as environment. Umbrel has nothing that can do that, so read the cookie here
 # when COOKIE_PATH names one and no credentials were supplied. Same file, same
 # source of truth either way, and no RPC secret is generated, stored or shared.
-# COOKIE_PATH names an exact file, which was fine while there was one chain.
-# bitcoind puts each chain's data, including its cookie, in a subdirectory named
-# for that chain, so a path naming one of them stops resolving the moment the node
-# is switched to another. That failure is silent: the gateway starts with no RPC
-# credentials and simply never gets a template. So the path is a hint, and the
-# fallback is to look for whichever chain is actually there.
-find_cookie() {
-    [ -n "${COOKIE_PATH:-}" ] && [ -s "$COOKIE_PATH" ] && { echo "$COOKIE_PATH"; return 0; }
-    # Search beside the configured path if there is one, else the usual mount.
+# Finding the cookie is not the same as having working credentials, and the
+# difference bites on a chain switch. Each chain keeps its own directory, so the
+# previous chain's cookie is still sitting there afterwards. The gateway restarts
+# faster than the node does, reads that stale file, and then every RPC call comes
+# back 401 while the gateway looks perfectly healthy and simply never gets a
+# template. Observed, not imagined.
+#
+# So candidates are tried rather than chosen, and a candidate counts only if the
+# node answers with it. The same call returns the chain, so what is proven working
+# and what names the payout cache cannot disagree.
+cookie_candidates() {
     local base="${KNOTS_MOUNT:-/knots}"
     [ -n "${COOKIE_PATH:-}" ] && base="$(dirname "$(dirname "$COOKIE_PATH")")"
     local c
-    for c in "$base"/*/.cookie "$base"/.cookie; do
-        [ -s "$c" ] && { echo "$c"; return 0; }
+    for c in "${COOKIE_PATH:-}" "$base"/*/.cookie "$base"/.cookie; do
+        [ -n "$c" ] && [ -s "$c" ] && echo "$c"
     done
-    return 1
 }
 
-if [ -z "${RPC_USER:-}" ]; then
-    _cookie_file=""
-    for _ in $(seq 1 60); do
-        _cookie_file="$(find_cookie)" && break
-        sleep 2
-    done
-    if [ -n "$_cookie_file" ]; then
-        _cookie="$(cat "$_cookie_file")"
-        RPC_USER="${_cookie%%:*}"
-        RPC_PASSWORD="${_cookie#*:}"
-        echo "datum-blake2b: authenticating with the node's cookie ($_cookie_file)"
-    else
-        echo "datum-blake2b: no cookie found under ${KNOTS_MOUNT:-/knots}; starting without RPC credentials" >&2
-    fi
-fi
-
-# One RPC helper, defined here rather than inside the payout branch, because the
-# chain has to be known before the payout cache can even be named.
-_rpc() {
-    [ -n "$RPC_URL" ] && [ -n "${RPC_USER:-}" ] || return 1
+rpc_with() {   # rpc_with USER PASS METHOD PARAMS
     wget -q -O - --header='Content-Type: application/json' \
-        --http-user="$RPC_USER" --http-password="$RPC_PASSWORD" \
-        --post-data="{\"jsonrpc\":\"1.0\",\"id\":\"init\",\"method\":\"$1\",\"params\":$2}" \
+        --http-user="$1" --http-password="$2" \
+        --post-data="{\"jsonrpc\":\"1.0\",\"id\":\"init\",\"method\":\"$3\",\"params\":$4}" \
         "$RPC_URL" 2>/dev/null || true
 }
 
-# Which chain the node is on. Asked rather than configured: this is the Umbrel and
-# plain-Docker path, where nothing has told us, and the node is the authority.
-NODE_CHAIN="$(_rpc getblockchaininfo '[]' \
-    | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
+NODE_CHAIN=""
+if [ -z "${RPC_USER:-}" ] && [ -n "$RPC_URL" ]; then
+    for _ in $(seq 1 60); do
+        for _c in $(cookie_candidates); do
+            _u="$(cut -d: -f1 "$_c")"; _p="$(cut -d: -f2- "$_c")"
+            _chain="$(rpc_with "$_u" "$_p" getblockchaininfo '[]' \
+                | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
+            if [ -n "$_chain" ]; then
+                RPC_USER="$_u"; RPC_PASSWORD="$_p"; NODE_CHAIN="$_chain"
+                echo "datum-blake2b: authenticated with $_c (chain $NODE_CHAIN)"
+                break 2
+            fi
+        done
+        sleep 2
+    done
+    [ -n "${RPC_USER:-}" ] || echo "datum-blake2b: no cookie under ${KNOTS_MOUNT:-/knots} authenticated; starting without RPC credentials" >&2
+fi
+
+_rpc() {
+    [ -n "$RPC_URL" ] && [ -n "${RPC_USER:-}" ] || return 1
+    rpc_with "$RPC_USER" "$RPC_PASSWORD" "$1" "$2"
+}
+
+# StartOS passes credentials in directly, so the loop above never runs there and
+# the chain still has to be asked for.
+if [ -z "$NODE_CHAIN" ]; then
+    NODE_CHAIN="$(_rpc getblockchaininfo '[]' \
+        | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
+fi
 NODE_CHAIN="${NODE_CHAIN:-unknown}"
 
 # Where the block rewards go. StartOS asks for this with an action and refuses to
@@ -81,6 +88,21 @@ NODE_CHAIN="${NODE_CHAIN:-unknown}"
 # prefixes (datum_utils.c), so a regtest bcrt1 address is rejected downstream
 # while testnet4's tb1 goes straight through. Legacy is the regtest workaround,
 # not a preference, and it should not follow onto a chain that does not need it.
+# The same settings file the node reads, when one is mounted. It is how the page
+# this image serves reaches a running service on platforms with no settings form.
+SETTINGS="${SETTINGS_FILE:-/config/settings.json}"
+settings_get() {
+    [ -s "$SETTINGS" ] || return 1
+    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$SETTINGS" | head -1
+}
+# A payout address set there wins over the cache, since it is the newer answer and
+# somebody typed it on purpose. Per chain, for the reason below.
+_set_addr="$(settings_get "payout_address_${NODE_CHAIN}" || true)"
+if [ -z "${POOL_ADDRESS:-}" ] && [ -n "${_set_addr:-}" ]; then
+    POOL_ADDRESS="$_set_addr"
+    echo "datum-blake2b: payout address for ${NODE_CHAIN} from $SETTINGS"
+fi
+
 # Cached per chain. bitcoind keeps a separate wallet for each one, so an address
 # derived on regtest belongs to a wallet testnet4 never opens. Worse, regtest and
 # testnet share base58 prefixes, so a stale regtest address is accepted rather
@@ -307,4 +329,43 @@ for i in $(seq 1 "${RPC_WAIT_SECONDS:-120}"); do
     sleep 1
 done
 
-exec datum_gateway -c "$CONF" "$@"
+# Same watcher as the node, same reasoning: a settings change stops the service so
+# the restart policy brings it back reading the new file, without anything here
+# holding a Docker socket.
+
+# Not `exec`. A process running as PID 1 does not get the default action for a
+# signal it has no handler for, so the kernel discards it. bitcoind installs a
+# SIGTERM handler and would have been fine; datum_gateway does not, and a settings
+# change printed "restarting to apply" while the service carried on running. So
+# the shell stays PID 1, the service is its child, and signalling the child works
+# the way signalling anything else works.
+datum_gateway -c "$CONF" "$@" &
+APP_PID=$!
+
+# Forward what `docker stop` and StartOS send, so staying PID 1 does not turn a
+# normal shutdown into a ten-second wait and a kill.
+trap 'kill -TERM "$APP_PID" 2>/dev/null || true' TERM INT
+
+# Started unconditionally, and it hashes "absent" as a state of its own. Guarding
+# on the file existing meant a settings file created *after* boot was never
+# noticed, which is exactly what happens the first time somebody uses the page:
+# there is nothing to watch until they press save, and by then the watcher would
+# never have been started.
+(
+    _hash() { [ -s "$SETTINGS" ] && sha256sum "$SETTINGS" | cut -d' ' -f1 || echo none; }
+    _seen="$(_hash)"
+    while sleep 5; do
+        _now="$(_hash)"
+        if [ "$_now" != "$_seen" ]; then
+            echo "datum-blake2b: settings changed, restarting to apply"
+            kill -TERM "$APP_PID" 2>/dev/null || true
+            exit 0
+        fi
+    done
+) &
+
+# Exits when the service does, whether that is a crash, a stop, or the watcher
+# above deciding the settings changed. Either way the restart policy decides what
+# happens next.
+wait "$APP_PID"
+
