@@ -47,15 +47,20 @@ const inputSpec = InputSpec.of({
     min: 1,
     integer: true,
   }),
+  // Capped at 150 because DATUM refuses to start above it, with
+  // "stratum.share_stale_seconds must not exceed 150 (suggest 120)" during
+  // config parsing. Verified against the binary. Without the cap the form
+  // accepts a value that leaves the container unable to boot.
   share_stale_seconds: Value.number({
     name: i18n('Share Stale Seconds'),
     description: i18n(
-      'How old a share may be before it is rejected as stale.',
+      'How old a share may be before it is rejected as stale. DATUM allows at most 150.',
     ),
     required: false,
     default: null,
     placeholder: '120',
     min: 1,
+    max: 150,
     integer: true,
     units: 's',
   }),

@@ -1,4 +1,11 @@
-import { CONFIG_GROUP, i18n, readGroup, sdk, writeGroup } from './_shared'
+import {
+  assertTimingsAgree,
+  CONFIG_GROUP,
+  i18n,
+  readGroup,
+  sdk,
+  writeGroup,
+} from './_shared'
 
 const { InputSpec, Value } = sdk
 
@@ -47,5 +54,8 @@ export const bitcoindConfig = sdk.Action.withInput(
 
   async ({ effects }) => readGroup(effects, 'bitcoind'),
 
-  async ({ effects, input }) => writeGroup(effects, 'bitcoind', input),
+  async ({ effects, input }) => {
+    await assertTimingsAgree(effects, 'bitcoind', input)
+    return writeGroup(effects, 'bitcoind', input)
+  },
 )

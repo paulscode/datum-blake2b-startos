@@ -1,4 +1,11 @@
-import { CONFIG_GROUP, i18n, readGroup, sdk, writeGroup } from './_shared'
+import {
+  assertTimingsAgree,
+  CONFIG_GROUP,
+  i18n,
+  readGroup,
+  sdk,
+  writeGroup,
+} from './_shared'
 
 const { InputSpec, Value } = sdk
 
@@ -98,5 +105,8 @@ export const datumConfig = sdk.Action.withInput(
 
   async ({ effects }) => readGroup(effects, 'datum'),
 
-  async ({ effects, input }) => writeGroup(effects, 'datum', input),
+  async ({ effects, input }) => {
+    await assertTimingsAgree(effects, 'datum', input)
+    return writeGroup(effects, 'datum', input)
+  },
 )

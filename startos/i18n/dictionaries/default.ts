@@ -139,6 +139,7 @@ const dict = {
   'Choose where block rewards go. Paste an address from your BLAKE2b node, which is on the public BLAKE2b test network. The gateway will not mine until this is set.': 135,
   'An address from your BLAKE2b node. Every block this gateway mines pays here.': 136,
   'Must be a test-chain address: tb1 on the public test network, or m, n or 2 on either chain': 137,
+  'How old a share may be before it is rejected as stale. DATUM allows at most 150.': 138,
 } as const
 
 /**
