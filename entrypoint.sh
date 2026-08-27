@@ -20,20 +20,55 @@ RPC_URL="${RPC_URL:-}"
 # as environment. Umbrel has nothing that can do that, so read the cookie here
 # when COOKIE_PATH names one and no credentials were supplied. Same file, same
 # source of truth either way, and no RPC secret is generated, stored or shared.
-if [ -z "${RPC_USER:-}" ] && [ -n "${COOKIE_PATH:-}" ]; then
+# COOKIE_PATH names an exact file, which was fine while there was one chain.
+# bitcoind puts each chain's data, including its cookie, in a subdirectory named
+# for that chain, so a path naming one of them stops resolving the moment the node
+# is switched to another. That failure is silent: the gateway starts with no RPC
+# credentials and simply never gets a template. So the path is a hint, and the
+# fallback is to look for whichever chain is actually there.
+find_cookie() {
+    [ -n "${COOKIE_PATH:-}" ] && [ -s "$COOKIE_PATH" ] && { echo "$COOKIE_PATH"; return 0; }
+    # Search beside the configured path if there is one, else the usual mount.
+    local base="${KNOTS_MOUNT:-/knots}"
+    [ -n "${COOKIE_PATH:-}" ] && base="$(dirname "$(dirname "$COOKIE_PATH")")"
+    local c
+    for c in "$base"/*/.cookie "$base"/.cookie; do
+        [ -s "$c" ] && { echo "$c"; return 0; }
+    done
+    return 1
+}
+
+if [ -z "${RPC_USER:-}" ]; then
+    _cookie_file=""
     for _ in $(seq 1 60); do
-        [ -s "$COOKIE_PATH" ] && break
+        _cookie_file="$(find_cookie)" && break
         sleep 2
     done
-    if [ -s "$COOKIE_PATH" ]; then
-        _cookie="$(cat "$COOKIE_PATH")"
+    if [ -n "$_cookie_file" ]; then
+        _cookie="$(cat "$_cookie_file")"
         RPC_USER="${_cookie%%:*}"
         RPC_PASSWORD="${_cookie#*:}"
-        echo "datum-blake2b: authenticating with the node's cookie"
+        echo "datum-blake2b: authenticating with the node's cookie ($_cookie_file)"
     else
-        echo "datum-blake2b: no cookie at $COOKIE_PATH; starting without RPC credentials" >&2
+        echo "datum-blake2b: no cookie found under ${KNOTS_MOUNT:-/knots}; starting without RPC credentials" >&2
     fi
 fi
+
+# One RPC helper, defined here rather than inside the payout branch, because the
+# chain has to be known before the payout cache can even be named.
+_rpc() {
+    [ -n "$RPC_URL" ] && [ -n "${RPC_USER:-}" ] || return 1
+    wget -q -O - --header='Content-Type: application/json' \
+        --http-user="$RPC_USER" --http-password="$RPC_PASSWORD" \
+        --post-data="{\"jsonrpc\":\"1.0\",\"id\":\"init\",\"method\":\"$1\",\"params\":$2}" \
+        "$RPC_URL" 2>/dev/null || true
+}
+
+# Which chain the node is on. Asked rather than configured: this is the Umbrel and
+# plain-Docker path, where nothing has told us, and the node is the authority.
+NODE_CHAIN="$(_rpc getblockchaininfo '[]' \
+    | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
+NODE_CHAIN="${NODE_CHAIN:-unknown}"
 
 # Where the block rewards go. StartOS asks for this with an action and refuses to
 # start without an answer. Umbrel has no equivalent, and prompting is the whole
@@ -46,31 +81,36 @@ fi
 # prefixes (datum_utils.c), so a regtest bcrt1 address is rejected downstream
 # while testnet4's tb1 goes straight through. Legacy is the regtest workaround,
 # not a preference, and it should not follow onto a chain that does not need it.
-POOL_ADDRESS_FILE="$DATADIR/payout_address"
+# Cached per chain. bitcoind keeps a separate wallet for each one, so an address
+# derived on regtest belongs to a wallet testnet4 never opens. Worse, regtest and
+# testnet share base58 prefixes, so a stale regtest address is accepted rather
+# than rejected and the rewards pay to a key the running chain's wallet does not
+# hold. Nothing reports that. See issue #1.
+POOL_ADDRESS_FILE="$DATADIR/payout_address.${NODE_CHAIN}"
+LEGACY_ADDRESS_FILE="$DATADIR/payout_address"
+
+# One-time adoption of the pre-per-chain file. Chain switching did not exist when
+# it was written, so whatever chain is running now is the one it was made on.
+if [ ! -s "$POOL_ADDRESS_FILE" ] && [ -s "$LEGACY_ADDRESS_FILE" ] \
+        && [ "$NODE_CHAIN" != "unknown" ]; then
+    cp "$LEGACY_ADDRESS_FILE" "$POOL_ADDRESS_FILE"
+    echo "datum-blake2b: adopted the existing payout address for ${NODE_CHAIN}"
+fi
+
 if [ -z "${POOL_ADDRESS:-}" ] && [ -s "$POOL_ADDRESS_FILE" ]; then
     POOL_ADDRESS="$(cat "$POOL_ADDRESS_FILE")"
 fi
 if [ -z "${POOL_ADDRESS:-}" ] && [ "${AUTO_PAYOUT_FROM_NODE:-0}" = "1" ] \
         && [ -n "$RPC_URL" ] && [ -n "${RPC_USER:-}" ]; then
-    echo "datum-blake2b: no payout address set, asking the node for one"
-    _rpc() {
-        wget -q -O - --header='Content-Type: application/json' \
-            --http-user="$RPC_USER" --http-password="$RPC_PASSWORD" \
-            --post-data="{\"jsonrpc\":\"1.0\",\"id\":\"init\",\"method\":\"$1\",\"params\":$2}" \
-            "$RPC_URL" 2>/dev/null || true
-    }
-    # Which address type to ask for. regtest cannot use bech32 here, because
-    # DATUM's parser does not know the bcrt prefix; every other chain can and
-    # should. Asked of the node rather than configured, since this path is the
-    # Umbrel and plain-Docker one where nothing has told us the chain.
-    _chain="$(_rpc getblockchaininfo '[]' \
-        | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
-    if [ "${_chain:-regtest}" = "regtest" ]; then
+    echo "datum-blake2b: no payout address set for ${NODE_CHAIN}, asking the node"
+    # regtest cannot use bech32 here, because DATUM's parser does not know the
+    # bcrt prefix; every other chain can and should.
+    if [ "$NODE_CHAIN" = "regtest" ]; then
         _addrtype=legacy
     else
         _addrtype=bech32
     fi
-    echo "datum-blake2b: chain=${_chain:-unknown}, asking for a $_addrtype address"
+    echo "datum-blake2b: chain=${NODE_CHAIN}, asking for a $_addrtype address"
 
     for _ in $(seq 1 30); do
         # Whichever of these two applies is the one that works; the other fails
