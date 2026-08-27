@@ -13,7 +13,9 @@ const longEn =
   'is closed-source and SHA256d-only. ' +
   'Requires the Bitcoin Knots BLAKE2b service, not the official ' +
   'Bitcoin package, and installs alongside the official Datum Gateway without ' +
-  'disturbing it. Regtest only: the coins are worthless by construction.'
+  'disturbing it. It follows whichever chain that node is on, a private regtest ' +
+  'of your own or the public BLAKE2b test network. The coins are worthless by ' +
+  'construction on both.'
 
 export const short = {
   en_US: shortEn,
