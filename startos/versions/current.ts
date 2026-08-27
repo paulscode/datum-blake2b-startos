@@ -1,25 +1,19 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'The gateway now has the same settings as the official Datum Gateway service, grouped the ' +
-  'same way: six Config actions for Bitcoind, Stratum, Mining, API, Logger and DATUM Pool. ' +
-  'Anything you leave blank keeps the gateway’s own default. ' +
-  'The service page also shows how many miners are connected and their estimated hashrate, ' +
-  'as the official service does. ' +
-  'The dashboard’s admin pages are on: they list each connected miner with its share counts ' +
-  'and hashrate, and were previously unreachable. The password is created for you on install ' +
-  'and shown in the new Dashboard Password action. ' +
-  'This service now follows whichever chain your node is on, rather than assuming a private ' +
-  'chain, so it works on the public BLAKE2b test network. ' +
-  'Compatibility reports have two fixes. They now separate a block your node refused from '
-  + 'one that simply lost a race to another block at the same height, which mean very '
-  + 'different things and used to be counted together. And a report no longer fails on a '
-  + 'busy miner: one tester with a lot of rejected shares got an error instead of a report. '
-  + 'Nothing you have set is changed by this update.' +
-  'The page this service serves can now choose the chain and payout address on platforms that have no settings form. On StartOS the existing actions remain the way to do both.'
+  'Two settings could be saved in combinations this gateway will not start ' +
+  'with, and the forms now catch both before you save. ' +
+  'Share Stale Seconds accepted any value, but DATUM allows at most 150. ' +
+  'Protocol Timeout has to be at least Work Update Seconds plus 5, and the two ' +
+  'live in different Config actions, so a pair that was fine when you saved it ' +
+  'could be broken later from the other form. Neither form knew about the ' +
+  'other; both now check the pair. ' +
+  'If you have not changed either setting, nothing here affects you. ' +
+  'The service description no longer says regtest only, which stopped being ' +
+  'true when chain selection landed.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:27',
+  version: '1.0.0:28',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
