@@ -1,19 +1,16 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Two settings could be saved in combinations this gateway will not start ' +
-  'with, and the forms now catch both before you save. ' +
-  'Share Stale Seconds accepted any value, but DATUM allows at most 150. ' +
-  'Protocol Timeout has to be at least Work Update Seconds plus 5, and the two ' +
-  'live in different Config actions, so a pair that was fine when you saved it ' +
-  'could be broken later from the other form. Neither form knew about the ' +
-  'other; both now check the pair. ' +
-  'If you have not changed either setting, nothing here affects you. ' +
-  'The service description no longer says regtest only, which stopped being ' +
-  'true when chain selection landed.'
+  'A confusing failure is now explained. When a regtest chain has mined past ' +
+  'its last halving the block subsidy reaches zero, so there is nothing to mine ' +
+  'for. The gateway reported that as missing data from your node and then sat ' +
+  'on "Initialising..." with no reason given, which sent you looking for a ' +
+  'broken node instead. It now names the cause on the status page and in the ' +
+  'log, and tells you what to do about it. ' +
+  'Nothing you have set is changed by this update.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:28',
+  version: '1.0.0:29',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
