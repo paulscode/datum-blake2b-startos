@@ -121,8 +121,10 @@ with a cookie the node writes itself, and this chain has no peers to find.
 
 ## Reporting a miner nobody has tried
 
-Verified so far, both on stock firmware: a **Goldshell HS-Box** in Sia mode, and a
-**Bitmain Antminer A3** on CGminer 4.9.0. Other Sia BLAKE2b miners are expected to
+Verified so far, all on stock firmware, across three manufacturers: **Goldshell**
+HS-Box, SC5 Pro and SC Box II, a **Bitmain** Antminer A3, and an **Innosilicon**
+S11. Three separate mining stacks (`intminer`, `cgminer`, `sgminer`) and every one
+of them spoke to the gateway identically. Other Sia BLAKE2b miners are expected to
 work but have not been tried.
 
 **GPUs do not work yet.** `ccminer -a sia` computes the right hash but speaks the

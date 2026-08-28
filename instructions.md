@@ -149,9 +149,12 @@ accepted, and the node accepted 199 of the 298 blocks it found.
 **Goldshell SC Box II** (firmware 2.2.2). Reported by a user. 382 of 384 shares
 accepted, and the node accepted 346 of the 383 blocks it found.
 
-The A3 is the most encouraging of the four, because it has nothing in common with
-the three Goldshells: different manufacturer, and stock CGminer rather than the
-vendor's own firmware. All four spoke to the gateway identically.
+**Innosilicon S11** (firmware s11_20190424_095412). Reported by a user. 60 of 61
+shares accepted, and the node accepted 48 of the 61 blocks it found.
+
+The A3 and the S11 are the most encouraging, because they have nothing in common
+with the three Goldshells or with each other: different manufacturer, and stock CGminer rather than the
+vendor's own firmware. All five spoke to the gateway identically, across three manufacturers.
 
 **Your miner may report a lot of hardware errors here.** One tester saw that, and
 saw it stop when they pointed the same miner at a normal Sia pool. On their

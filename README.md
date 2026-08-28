@@ -294,6 +294,7 @@ with a home server and a miner, not people who have used a bug tracker.
 | Bitmain Antminer A3 | CGminer 4.9.0 | yes | yes | 158 of 161 | not reported | none |
 | Goldshell SC5 Pro | 2.2.0 / 30.50.SA | yes | yes | 272 of 299 | 199 of 298 | none |
 | Goldshell SC Box II | 2.2.2 / 20.10.SA | yes | yes | 382 of 384 | **346 of 383** | none |
+| Innosilicon S11 | s11_20190424_095412 | yes | yes | 60 of 61 | **48 of 61** | none |
 | NVIDIA GPU, `ccminer-tpfuemp -a sia` | 2026.07.2, CUDA 11.8 | connects | **rejects them** | 0 | 0 | n/a |
 
 "not reported" for the A3 because the report could not see blocks when it was
@@ -391,6 +392,29 @@ Reproduced here with two miners, one per port: 5 shares on the capture port and 
 blocks recorded, with the old wording crediting all 12 to "this miner". The report
 now refuses that claim and says why. Per-miner attribution is not recoverable, since
 a submitblock record is the block and says nothing about which client found it.
+
+### Three vendors, three mining stacks, one dialect
+
+The Innosilicon S11 is the fifth device and the third vendor, and it matters more
+than the count suggests:
+
+| device | user agent | vendor |
+|---|---|---|
+| Goldshell HS-Box, SC5 Pro, SC Box II | `intminer` | Goldshell |
+| Bitmain Antminer A3 | `cgminer/4.9.0` | Bitmain |
+| Innosilicon S11 | `sgminer/4.4.2` | Innosilicon |
+
+Three vendors and three separate mining-software lineages, and every field that
+carries meaning is identical across all five: 4-byte extranonce1, extranonce2_size
+8, 16-hex ntime and nonce, no non-standard methods. Whatever "the Sia dialect" is,
+it is not one vendor's idea of it.
+
+Its report is also the first to prove two pieces of tooling in the field. The
+build fingerprint matches `1.0.0:27` exactly, gateway `e0437de6` and tooling
+`140b8ccab213`, so the report is traceable to one build with no ambiguity. And the
+refused-versus-raced split reported **13 raced and zero refused**, which is the
+first time a report has been able to say that the unplaced blocks were races
+rather than rejections instead of leaving it open.
 
 ### Refused blocks and raced blocks are not the same thing
 
