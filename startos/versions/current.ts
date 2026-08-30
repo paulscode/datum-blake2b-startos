@@ -3,16 +3,48 @@ import { storeJson } from '../fileModels/store.json'
 import { chainFromAddress } from '../payoutAddress'
 
 const notes =
-  'A confusing failure is now explained. When a regtest chain has mined past ' +
-  'its last halving the block subsidy reaches zero, so there is nothing to mine ' +
-  'for. The gateway reported that as missing data from your node and then sat ' +
-  'on "Initialising..." with no reason given, which sent you looking for a ' +
-  'broken node instead. It now names the cause on the status page and in the ' +
-  'log, and tells you what to do about it. ' +
-  'Nothing you have set is changed by this update.'
+  'Mines the BLAKE2b chain on mainnet. The proof of work changed there at block ' +
+  '961640 on 30 August 2026, and the node package can now follow it, so this ' +
+  'follows it too. The chain is still read from your node rather than set here. ' +
+  ' ' +
+  'The payout address is now kept per chain, and a mainnet address can be set. ' +
+  'There used to be one address for the whole service, so pointing the node at ' +
+  "another chain left the previous chain's address in place, and that address " +
+  'belongs to a wallet the new chain never opens. It fails quietly: DATUM does ' +
+  'not check which network an address came from, so a leftover test address on ' +
+  'mainnet builds a perfectly valid payment to a key you may not hold. Set ' +
+  'Payout Address now checks what you enter against the chain your node is on. ' +
+  'An address you had set is moved to the chain its own prefix identifies; one ' +
+  'that could belong to either test chain is left unassigned and you are asked, ' +
+  'because guessing costs real money. ' +
+  ' ' +
+  'The Primary Coinbase Tag is now yours to set. It was locked to the value the ' +
+  'chain requires at its activation block, which is consensus for exactly one ' +
+  'block and free text everywhere else, so on mainnet it is simply a label for ' +
+  'blocks you find. Leave it blank and the old behaviour is unchanged. If your ' +
+  'node has not yet reached the activation height, the required value is added ' +
+  'to whatever you choose rather than either being dropped. ' +
+  ' ' +
+  'On deployments without a settings form, such as Umbrel and plain Docker, the ' +
+  'page this gateway serves now offers mainnet and lets you choose whether the ' +
+  'node keeps the whole chain or only recent blocks. It is the whole settings ' +
+  'interface there, so a control missing from it is a control you do not have. ' +
+  ' ' +
+  'Stopping the service is now clean. It was being asked to stop and then killed ' +
+  'a few milliseconds later, before it could exit properly. ' +
+  ' ' +
+  'A confusing failure is explained rather than reported as a broken node. When ' +
+  'a private chain has mined past its last halving the block subsidy reaches ' +
+  'zero, so there is nothing to mine for; the gateway used to sit on ' +
+  '"Initialising..." with no reason given. It now names the cause and says what ' +
+  'to do. ' +
+  ' ' +
+  'The service is now called "Datum Gateway (BLAKE2b) Companion", matching the ' +
+  '"Companion" naming on the nodes it runs against and marking it as ours rather than ' +
+  'an official package. Only the display name changed.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:35',
+  version: '1.0.0:36',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

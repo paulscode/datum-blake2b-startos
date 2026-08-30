@@ -5,12 +5,7 @@ import {
 } from 'knots-blake2b-startos/startos/utils'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import {
-  captureLog,
-  dataDir,
-  knotsMountpoint,
-  submittedDir,
-} from '../utils'
+import { captureLog, dataDir, knotsMountpoint, submittedDir } from '../utils'
 
 const KNOTS_PKG = knotsManifest.id
 

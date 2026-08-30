@@ -7,7 +7,7 @@ export const manifest = setupManifest({
   // both must be installable at once. See PLAN Q12 on why the chain stays out of
   // the id and in the title.
   id: 'datum-blake2b',
-  title: 'Datum (BLAKE2b) Companion',
+  title: 'Datum Gateway (BLAKE2b) Companion',
   license: 'MIT',
   packageRepo: 'https://github.com/paulscode/datum-blake2b-startos',
   upstreamRepo: 'https://github.com/OCEAN-xyz/datum_gateway',
@@ -42,7 +42,7 @@ export const manifest = setupManifest({
       description: knotsDependencyDescription,
       optional: false,
       metadata: {
-        title: 'Knots (BLAKE2b) Companion',
+        title: 'Bitcoin Knots (BLAKE2b) Companion',
         // A dependency icon is an absolute URL into the dependency's repo, not a
         // magic filename, so PNG is fine (E9). It is fetched by the StartOS UI,
         // which means the packaging repo has to be public for it to render.

@@ -10,7 +10,7 @@ const longEn =
   'stock firmware; a Goldshell HS-Box has been verified end to end. ' +
   'Solo mining only: pooled BLAKE2b is not possible today because the pool side ' +
   'is closed-source and SHA256d-only. ' +
-  'Requires the Knots (BLAKE2b) Companion service, not the official ' +
+  'Requires the Bitcoin Knots (BLAKE2b) Companion service, not the official ' +
   'Bitcoin package, and installs alongside the official Datum Gateway without ' +
   'disturbing it. It follows whichever chain that node is on, a private regtest ' +
   'of your own or the public BLAKE2b test network. The coins are worthless by ' +

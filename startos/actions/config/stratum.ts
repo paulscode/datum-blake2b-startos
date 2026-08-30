@@ -184,7 +184,8 @@ export const stratumConfig = sdk.Action.withInput(
     // Treating a cleared field as "keep" would make this the one field in the
     // form that cannot be undone.
     await storeJson.merge(effects, {
-      vardiffMin: typeof vardiff_min === 'number' ? vardiff_min : DEFAULT_VARDIFF_MIN,
+      vardiffMin:
+        typeof vardiff_min === 'number' ? vardiff_min : DEFAULT_VARDIFF_MIN,
     })
     await writeGroup(effects, 'stratum', rest)
   },
