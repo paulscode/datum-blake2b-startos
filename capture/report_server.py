@@ -136,7 +136,11 @@ SETTINGS_CARD = """<div class="card">
 <label for="chain">Which chain to mine</label>
 <select id="chain" name="chain">
   <option value="regtest"{sel_regtest}>Private test chain (regtest), starts empty, instant blocks</option>
-  <option value="testnet4"{sel_testnet4}>Public BLAKE2b test network (testnet4), shared with other testers</option>
+  <option value="mainnet"{sel_mainnet}>Bitcoin mainnet, the public BLAKE2b chain</option>
+</select>
+<label for="prune">Node storage</label>
+<select id="prune" name="prune">
+{prune_options}
 </select>
 <label for="payout">Payout address for {chain} <span style="font-weight:400;opacity:.7">(optional)</span></label>
 <input id="payout" name="payout" value="{payout}" placeholder="leave blank and your node is asked for one">
@@ -144,8 +148,11 @@ SETTINGS_CARD = """<div class="card">
 </form>
 <p style="opacity:.75;font-size:.9rem">Switching chains keeps both. Each has its own
 blocks, wallet and payout address, so switching back returns you to where you left
-off. The public network is a real chain and takes a while to download the first
-time.</p>
+off. Mainnet is a real chain and takes a while to download the first time.</p>
+<p style="opacity:.75;font-size:.9rem">Pruned means the node keeps only recent
+blocks and discards the rest, which is how a second chain fits on a server that
+already holds one. Going from pruned to full downloads the chain again, because
+the discarded blocks are gone.</p>
 {settings_msg}
 </div>
 """
@@ -171,7 +178,15 @@ does just as well.</p>
 
 
 
-CHAINS = ("regtest", "testnet4")
+CHAINS = ("regtest", "mainnet")
+# Storage presets, in MiB. 0 keeps the whole chain. bitcoind's floor for a budget
+# is 550, and 1 is its manual mode, which reports the node as pruned while never
+# discarding anything: not offered, because it grows without bound and there is no
+# control here to reclaim the space.
+PRUNE_CHOICES = (("5000", "Pruned, keep about 5 GB of blocks (recommended)"),
+                 ("20000", "Pruned, keep about 20 GB of blocks"),
+                 ("0", "Full node, keep the whole chain (hundreds of GB on mainnet)"))
+DEFAULT_PRUNE = "5000"
 # Deliberately strict. This value ends up in the gateway's config as the sole
 # destination for block rewards, so a typo is not a formatting problem.
 # `bcrt1` is excluded on purpose even though it is a perfectly good regtest
@@ -180,8 +195,32 @@ CHAINS = ("regtest", "testnet4")
 # with "Could not generate output script for pool addr" on every start. Base58
 # regtest addresses share testnet's prefixes and work fine, which is why the
 # node hands those out on regtest.
-ADDRESS_RE = re.compile(r"^(?:[mn2][1-9A-HJ-NP-Za-km-z]{25,39}|"
-                        r"tb1[02-9ac-hj-np-z]{8,87})$")
+# Per chain, because they are not interchangeable and DATUM will not stop you:
+# its parser is explicitly "agnostic to testnet vs mainnet addresses"
+# (datum_utils.c), so a test address on mainnet builds a valid mainnet payment to
+# a key from a wallet that chain never opens.
+ADDRESS_RE = {
+    "regtest": re.compile(r"^[mn2][1-9A-HJ-NP-Za-km-z]{25,39}$"),
+    "mainnet": re.compile(r"^(?:[13][1-9A-HJ-NP-Za-km-z]{25,39}|"
+                          r"bc1[02-9ac-hj-np-z]{8,87})$"),
+}
+ADDRESS_HINT = {
+    "regtest": "starting with m, n or 2",
+    "mainnet": "starting with bc1, 1 or 3",
+}
+
+
+def _prune_options(selected):
+    """The storage <select>'s options, with `selected` marked.
+
+    Built rather than templated because the list is data and the template should
+    not have to be edited to add a size.
+    """
+    out = []
+    for value, label in PRUNE_CHOICES:
+        mark = " selected" if value == selected else ""
+        out.append(f'  <option value="{value}"{mark}>{html.escape(label)}</option>')
+    return "\n".join(out)
 
 
 def read_settings(path):
@@ -221,18 +260,26 @@ class Handler(BaseHTTPRequestHandler):
         writable = bool(path) and os.access(os.path.dirname(path) or ".", os.W_OK)
         if not writable:
             return SETTINGS_CARD.format(
-                chain="this chain", payout="", sel_regtest="", sel_testnet4="",
+                chain="this chain", payout="", sel_regtest="", sel_mainnet="",
+                prune_options=_prune_options(DEFAULT_PRUNE),
                 settings_msg=SETTINGS_READONLY,
             ).replace("<button type=\"submit\">Save and restart</button>", "")
         s = read_settings(path)
         chain = s.get("chain") or "regtest"
         if chain not in CHAINS:
             chain = "regtest"
+        prune = str(s.get("prune", DEFAULT_PRUNE))
+        if prune not in dict(PRUNE_CHOICES):
+            # A value set elsewhere, or one of bitcoind's other legal settings.
+            # Show it rather than silently re-selecting a preset the node is not
+            # actually running.
+            prune = DEFAULT_PRUNE if prune != "1" else "1"
         return SETTINGS_CARD.format(
             chain=html.escape(chain),
             payout=html.escape(s.get(f"payout_address_{chain}", "")),
             sel_regtest=" selected" if chain == "regtest" else "",
-            sel_testnet4=" selected" if chain == "testnet4" else "",
+            sel_mainnet=" selected" if chain == "mainnet" else "",
+            prune_options=_prune_options(prune),
             settings_msg=msg,
         )
 
@@ -305,19 +352,29 @@ class Handler(BaseHTTPRequestHandler):
         path = self.cfg["settings_file"]
         chain = (form.get("chain") or [""])[0].strip()
         payout = (form.get("payout") or [""])[0].strip()
+        prune = (form.get("prune") or [""])[0].strip()
 
         if chain not in CHAINS:
             return self._render(msg='<p style="color:#b42318">Unknown chain.</p>')
+        if prune and prune not in dict(PRUNE_CHOICES):
+            return self._render(
+                msg='<p style="color:#b42318">Unknown storage setting.</p>')
         # An address is validated before it is stored, not after. Everything the
         # gateway mines pays here, and the failure mode for a wrong one is a
         # crash loop with "Could not generate output script for pool addr".
-        if payout and not ADDRESS_RE.match(payout):
+        if payout and not ADDRESS_RE[chain].match(payout):
             return self._render(
-                msg='<p style="color:#b42318">That does not look like an address '
-                    'for a test chain. Leave it blank to have your node supply '
-                    'one.</p>')
+                msg='<p style="color:#b42318">That does not look like a '
+                    f'{html.escape(chain)} address. Use one '
+                    f'{ADDRESS_HINT[chain]}, or leave it blank to have your node '
+                    'supply one.</p>')
 
         updates = {"chain": chain}
+        if prune:
+            # As a number, because that is what bitcoind's option is and what the
+            # node's entrypoint reads. Stored per deployment rather than per
+            # chain: it is a property of the disk, not of the chain.
+            updates["prune"] = int(prune)
         if payout:
             updates[f"payout_address_{chain}"] = payout
         try:
@@ -326,6 +383,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._render(
                 msg=f'<p style="color:#b42318">Could not save: {html.escape(str(exc))}</p>')
         print(f"[report] settings saved: chain={chain}"
+              + (f" prune={prune}" if prune else "")
               + (" payout=set" if payout else ""), flush=True)
         return self._render(msg=SETTINGS_SAVED)
 
