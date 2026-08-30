@@ -1,5 +1,6 @@
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
+import { expectedFor, isPayoutChain, isValidFor } from '../payoutAddress'
 import { sdk } from '../sdk'
 
 const { InputSpec, Value } = sdk
@@ -31,14 +32,11 @@ const inputSpec = InputSpec.of({
     ),
     required: true,
     default: null,
-    patterns: [
-      {
-        regex: '^(tb1[a-z0-9]{25,87}|[mn2][a-km-zA-HJ-NP-Z1-9]{25,39})$',
-        description: i18n(
-          'Must be a test-chain address: tb1 on the public test network, or m, n or 2 on either chain',
-        ),
-      },
-    ],
+    // No pattern here. The rules depend on which chain the node is on, and a
+    // pattern baked into the form cannot know it. The handler checks against
+    // that chain and names the prefixes that would work, which is a better
+    // error than a regex the form cannot explain.
+    patterns: [],
   }),
 })
 
@@ -63,7 +61,9 @@ export const setPayoutAddress = sdk.Action.withInput(
   // Prefill with whatever is set, so changing it later is an edit rather than a
   // retype from nothing.
   async ({ effects }) => {
-    const current = await storeJson.read((s) => s.poolAddress).once()
+    const nodeChain = (await storeJson.read((s) => s.nodeChain).once()) ?? ''
+    const byChain = (await storeJson.read((s) => s.poolAddresses).once()) ?? {}
+    const current = byChain[nodeChain]
     return current ? { poolAddress: current } : {}
   },
 
@@ -75,11 +75,21 @@ export const setPayoutAddress = sdk.Action.withInput(
     // every path, and this is the one setting where accepting a wrong value
     // silently sends someone's block rewards to an address they do not control.
     const addr = input.poolAddress.trim()
-    // bcrt1 is excluded deliberately, not by oversight. DATUM's address parser
-    // only understands bech32 with the `bc` and `tb` prefixes
-    // (datum_utils.c:415-425), so a regtest bech32 address fails to convert and
-    // the gateway refuses to start. Accepting one here would move the failure
-    // somewhere far less obvious.
+
+    // Which chain this address is for. main.ts records it on every start, so it is
+    // the chain the node is actually on rather than one guessed from the address,
+    // which for the shared base58 test prefixes cannot be guessed at all.
+    const nodeChain = (await storeJson.read((s) => s.nodeChain).once()) ?? ''
+    if (!isPayoutChain(nodeChain)) {
+      throw new Error(
+        `Cannot tell which chain this node is on, so an address cannot be checked ` +
+          `against it. Start the service once and try again: it records the chain ` +
+          `when it starts. Setting an address for the wrong chain is how block ` +
+          `rewards end up in a wallet you do not have.`,
+      )
+    }
+
+    // bcrt1 gets its own message, because the reason it fails is not obvious.
     if (/^bcrt1/.test(addr)) {
       throw new Error(
         `${addr} is a bech32 regtest address, which this gateway cannot pay to: ` +
@@ -88,21 +98,23 @@ export const setPayoutAddress = sdk.Action.withInput(
           `action gives you one.`,
       )
     }
-    // Must match the input spec's pattern above. This check exists because the
-    // spec's pattern is advisory on some paths (a restore, or a value set before
-    // the pattern was widened), not as a second, stricter opinion. Keeping the
-    // two in step matters: they disagreed for one revision and the form accepted
-    // a tb1 address that this then rejected.
-    if (!/^(tb1[a-z0-9]{25,87}|[mn2][a-km-zA-HJ-NP-Z1-9]{25,39})$/.test(addr)) {
+
+    if (!isValidFor(nodeChain, addr)) {
       throw new Error(
-        `Not a usable test-chain address: ${addr}. Use tb1... on the public ` +
-          `BLAKE2b test network, or an address starting with m, n or 2 on ` +
-          `either chain. A mainnet address here would send block rewards to a ` +
-          `key you may not control, on a chain this will never pay.`,
+        `${addr} is not usable on ${nodeChain}. Use ${expectedFor(nodeChain)}. An ` +
+          `address from another chain belongs to a wallet this node never opens, ` +
+          `and DATUM will not stop you: its parser is explicitly agnostic to which ` +
+          `network an address came from, so it would build a valid payment to a ` +
+          `key you may not hold.`,
       )
     }
 
-    await storeJson.merge(effects, { poolAddress: addr })
+    // Keyed by chain. The single field this replaced survived a chain switch and
+    // went on paying to the previous chain's wallet.
+    const existing = (await storeJson.read((s) => s.poolAddresses).once()) ?? {}
+    await storeJson.merge(effects, {
+      poolAddresses: { ...existing, [nodeChain]: addr },
+    })
 
     return {
       version: '1' as const,

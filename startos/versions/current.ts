@@ -1,4 +1,6 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
+import { storeJson } from '../fileModels/store.json'
+import { chainFromAddress } from '../payoutAddress'
 
 const notes =
   'A confusing failure is now explained. When a regtest chain has mined past ' +
@@ -10,7 +12,7 @@ const notes =
   'Nothing you have set is changed by this update.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:31',
+  version: '1.0.0:32',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -32,7 +34,29 @@ export const current = VersionInfo.of({
     // Password action is where they read it. Someone who clears it deliberately
     // keeps it cleared: an empty string is a decision, and only an absent field
     // is filled.
-    up: async ({ effects }) => {},
+    up: async ({ effects }) => {
+      // Move a pre-split payout address under the chain it belongs to.
+      //
+      // The old field recorded no chain, so the address itself is the only
+      // evidence. `chainFromAddress` reads the prefix and answers null when the
+      // prefix cannot decide, which is the honest answer for base58 test
+      // addresses: regtest and the public test network share `m`, `n` and `2`,
+      // and that shared prefix is precisely why a stale address was accepted on
+      // the wrong chain instead of rejected.
+      //
+      // Undecidable means leave it unassigned. The critical task then asks for
+      // one, which is a small interruption next to paying block rewards into a
+      // wallet the operator may not have.
+      const store = await storeJson.read().once()
+      const legacy = store?.poolAddress?.trim()
+      if (!legacy) return
+      if (Object.keys(store?.poolAddresses ?? {}).length > 0) return
+
+      const chain = chainFromAddress(legacy)
+      if (!chain) return
+
+      await storeJson.merge(effects, { poolAddresses: { [chain]: legacy } })
+    },
     down: IMPOSSIBLE,
   },
 })

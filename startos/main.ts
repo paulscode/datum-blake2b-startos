@@ -143,6 +143,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const store = await storeJson.read().const(effects)
 
+  // Record which chain the node is on. Actions cannot read the node config
+  // the way this can, and Set Payout Address has to know the chain to check
+  // an address against it. Writing it here means the answer is observed
+  // rather than guessed from an address prefix, which for the shared base58
+  // test prefixes cannot be guessed at all.
+  if (store?.nodeChain !== chain) {
+    await storeJson.merge(effects, { nodeChain: chain })
+  }
+
   const headline = knotsConf
     ?.split('\n')
     .find((l) => l.startsWith('blake2b_headline='))
@@ -153,7 +162,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
     STRATUM_PORT: String(stratumPort),
     API_PORT: String(uiPort),
     DATA_DIR: dataDir,
-    POOL_ADDRESS: store?.poolAddress ?? '',
+    // Per chain. A single field survived a chain switch and kept paying to the
+    // previous chain's wallet, silently, because DATUM's address parser does
+    // not care which network an address came from. No entry for this chain
+    // means no address, which the critical task then asks for.
+    POOL_ADDRESS: store?.poolAddresses?.[chain] ?? '',
     // Absent means absent: with no headline the entrypoint falls back to its own
     // tag, which is correct for every block except the activation block.
     ...(headline ? { BLAKE2B_HEADLINE: headline } : {}),

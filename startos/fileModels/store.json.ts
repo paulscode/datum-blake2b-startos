@@ -2,12 +2,31 @@ import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
 const shape = z.object({
-  // Where block rewards go. There is no safe default: an address we invented
-  // would silently send the user's coins somewhere they do not control, so this
-  // starts empty and the service refuses to run until it is set.
+  // Where block rewards go, keyed by chain. There is no safe default: an address
+  // we invented would silently send the user's coins somewhere they do not
+  // control, so a chain with no entry means the service refuses to run.
   //
-  // TODO: a `sdk.Action` to set this, surfaced as a critical task on install, so
-  // the user is prompted rather than having to find it.
+  // Keyed by chain because it was not, and that was a real hazard rather than an
+  // untidiness. bitcoind keeps a separate wallet per chain, so an address derived
+  // on one belongs to a wallet another never opens. A single field survived a
+  // chain switch and kept paying to the old chain's wallet. Worse, it did so
+  // quietly: DATUM's parser is explicitly "agnostic to testnet vs mainnet
+  // addresses" (datum_utils.c), so a leftover tb1 address on mainnet produces a
+  // perfectly valid mainnet output paying a key from a test wallet.
+  poolAddresses: z.record(z.string(), z.string()).catch({}),
+
+  // The chain the node was on at the last start, recorded by main.ts.
+  //
+  // Actions cannot see the node's config the way main.ts can, and an address has
+  // to be validated against the chain it is for. Recording it here is how Set
+  // Payout Address knows which rules to apply and which key to write, without
+  // asking the user to tell it something the system already knows.
+  nodeChain: z.string().catch(''),
+
+  // The single-chain field this replaced. Read only by the migration, which moves
+  // it under the chain its own prefix identifies. Kept rather than deleted so an
+  // upgrade cannot lose an address that was set before the split, and so nothing
+  // silently reads a value that may belong to a different chain.
   poolAddress: z.string().catch(''),
 
   // Password for the dashboard's admin pages, which is what makes the connected
