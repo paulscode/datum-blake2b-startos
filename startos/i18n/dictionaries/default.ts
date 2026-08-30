@@ -140,6 +140,8 @@ const dict = {
   'An address from your BLAKE2b node. Every block this gateway mines pays here.': 136,
   'Must be a test-chain address: tb1 on the public test network, or m, n or 2 on either chain': 137,
   'How old a share may be before it is rejected as stale. DATUM allows at most 150.': 138,
+  'Primary Coinbase Tag': 139,
+  'Free text placed in the coinbase of blocks this gateway builds, when mining solo. Leave blank to use the value this chain requires at its activation block. A pool overrides this.': 140,
 } as const
 
 /**

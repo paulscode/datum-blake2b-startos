@@ -171,7 +171,52 @@ VARDIFF_MIN="${VARDIFF_MIN:-1024}"
 # DATUM does not inject coinbaseaux.blake2b_headline, and upstream closed the PR
 # that would have made it do so, saying headlines are to be set manually. So we
 # set it here, where the user never has to know about it.
-COINBASE_TAG="${COINBASE_TAG:-${BLAKE2B_HEADLINE:-BLAKE2b Gateway}}"
+# The headline is consensus for exactly one block per chain, the one at the
+# activation height, and free text everywhere else. So the tag is the operator's
+# to choose, and is only forced when that one block is still ahead of this node.
+#
+# Ask the node where activation is and how far it has got. rc4 renamed this key
+# from `hardfork` to `blake2b`, so read either. If the node cannot be asked, or
+# says nothing useful, assume the block is still ahead and keep the headline:
+# guessing wrong in that direction costs a label, guessing wrong in the other
+# costs the activation block.
+_dep="$(_rpc getdeploymentinfo '[]' || true)"
+_act="$(printf '%s' "$_dep" | sed -n 's/.*"\(blake2b\|hardfork\)":{[^}]*"height":\([0-9]*\).*/\2/p' | head -1)"
+_blocks="$(_rpc getblockchaininfo '[]' \
+    | sed -n 's/.*"blocks":\([0-9]*\).*/\1/p' | head -1)"
+if [ -n "${_act:-}" ] && [ -n "${_blocks:-}" ] && [ "$_blocks" -ge "$_act" ]; then
+    HEADLINE_STILL_NEEDED=0
+else
+    HEADLINE_STILL_NEEDED=1
+fi
+
+COINBASE_TAG="${COINBASE_TAG:-}"
+if [ -z "$COINBASE_TAG" ]; then
+    # Nothing chosen. Keep the old behaviour: the headline, or DATUM's own label
+    # on a chain that has no headline to carry.
+    COINBASE_TAG="${BLAKE2B_HEADLINE:-BLAKE2b Gateway}"
+elif [ "$HEADLINE_STILL_NEEDED" = "1" ] && [ -n "${BLAKE2B_HEADLINE:-}" ] \
+        && ! printf '%s' "$COINBASE_TAG" | grep -qF -- "$BLAKE2B_HEADLINE"; then
+    # A tag was chosen, but this node has not yet passed the activation height,
+    # so the block it is about to build might be the one that must carry the
+    # headline. Carry both rather than silently dropping either. DATUM allows 60
+    # bytes in this tag, so refuse rather than truncate: a truncated headline is
+    # a rejected block that looks like bad luck.
+    _combined="${COINBASE_TAG} ${BLAKE2B_HEADLINE}"
+    if [ ${#_combined} -gt 60 ]; then
+        echo "FATAL: this node has not reached the BLAKE2b activation height" >&2
+        echo "       (${_blocks:-unknown} of ${_act:-unknown}), so the block it builds" >&2
+        echo "       there must carry the headline '${BLAKE2B_HEADLINE}' in its" >&2
+        echo "       coinbase. Your tag plus that headline is ${#_combined} bytes and the" >&2
+        echo "       limit is 60. Shorten the Primary Coinbase Tag, or leave it" >&2
+        echo "       blank to use the headline alone." >&2
+        exit 1
+    fi
+    echo "datum-blake2b: activation block still ahead (${_blocks:-?} of ${_act:-?});"
+    echo "               appending the headline to the coinbase tag so that block"
+    echo "               is valid. It becomes free text once the chain passes it."
+    COINBASE_TAG="$_combined"
+fi
 if [ -n "${BLAKE2B_HEADLINE:-}" ] && [ ${#BLAKE2B_HEADLINE} -gt 80 ]; then
     echo "FATAL: BLAKE2B_HEADLINE is ${#BLAKE2B_HEADLINE} bytes; the coinbase tag" >&2
     echo "       budget is 86 bytes total and the headline would be truncated," >&2

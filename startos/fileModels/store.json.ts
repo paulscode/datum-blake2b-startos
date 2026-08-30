@@ -66,6 +66,7 @@ const shape = z.object({
         .catch({}),
       mining: z
         .object({
+          coinbase_tag_primary: z.string().optional(),
           coinbase_tag_secondary: z.string().optional(),
           coinbase_unique_id: z.number().int().min(1).max(65535).optional(),
         })
