@@ -3,8 +3,8 @@ import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { manifest as knotsManifest } from 'knots-blake2b-startos/startos/manifest'
 import {
-  chains as knotsChains,
-  defaultChain as knotsDefaultChain,
+  chainDataSubdir,
+  chainFromConf,
   rpcHostId as knotsRpcHostId,
   rpcPort as knotsRpcPort,
 } from 'knots-blake2b-startos/startos/utils'
@@ -105,25 +105,35 @@ export const main = sdk.setupMain(async ({ effects }) => {
     .const(effects)
 
   // Which chain the node is on, taken from the node's own generated config
-  // rather than configured here. bitcoind keeps each chain's data, including its
-  // RPC cookie, in a subdirectory named for that chain, so this decides where to
-  // look for the cookie. Reading it instead of duplicating it means the two
+  // rather than configured here. bitcoind keeps a non-mainnet chain's data,
+  // including its RPC cookie, in a subdirectory named for that chain, and
+  // mainnet's at the root, so this decides where to look for the cookie. Reading it instead of duplicating it means the two
   // cannot drift: the node package regenerates that file on every start, and the
   // reactive read above restarts the gateway when it changes.
   //
   // This used to be hardcoded to `regtest`, which broke silently the moment the
-  // node was switched to testnet4: the cookie was simply never found and the
-  // gateway ran with no RPC credentials.
-  const chain =
-    knotsChains.find((c: string) =>
-      knotsConf?.split('\n').some((l) => l.trim() === `${c}=1`),
-    ) ?? knotsDefaultChain
+  // node was switched to another chain: the cookie was simply never found
+  // and the gateway ran with no RPC credentials.
+  //
+  // The rule is not "find a `<chain>=1` line": mainnet has no such line,
+  // because it is bitcoind's default and no `mainnet=1` option exists. A
+  // search for a positive marker therefore concludes regtest on a mainnet
+  // node and lands in exactly the failure this comment is about.
+  // `chainFromConf` in the node package owns that rule so the two cannot
+  // drift.
+  const chain = chainFromConf(knotsConf)
 
   // bitcoind rewrites the cookie on every start, so treat a change as a reason
   // to restart the gateway. Absent means the node is down: let the dial fail and
   // the health check go red rather than fabricating credentials.
+  // Mainnet keeps its files at the root of the data directory; every other
+  // chain gets a subdirectory named for it. `chainDataSubdir` is empty for
+  // mainnet, so this collapses to `<mount>/.cookie` there.
+  const chainSubdir = chainDataSubdir(chain)
   const cookie = await FileHelper.string(
-    `${rootfs}${knotsMountpoint}/${chain}/.cookie`,
+    chainSubdir
+      ? `${rootfs}${knotsMountpoint}/${chainSubdir}/.cookie`
+      : `${rootfs}${knotsMountpoint}/.cookie`,
   )
     .read(
       (c) => c,
@@ -132,7 +142,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
     .const(effects)
 
   const store = await storeJson.read().const(effects)
-
 
   const headline = knotsConf
     ?.split('\n')
@@ -263,8 +272,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
               '[^0-9]',
             )
             return num
-              ? { result: 'success' as const, message: `${i18n('Miners connected')}: ${num}` }
-              : { result: 'success' as const, message: i18n('Could not read the number of miners') }
+              ? {
+                  result: 'success' as const,
+                  message: `${i18n('Miners connected')}: ${num}`,
+                }
+              : {
+                  result: 'success' as const,
+                  message: i18n('Could not read the number of miners'),
+                }
           },
         },
       })
@@ -281,8 +296,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
               '[^0-9.]',
             )
             return num
-              ? { result: 'success' as const, message: `${i18n('Estimated hashrate')}: ${num} Th/s` }
-              : { result: 'success' as const, message: i18n('Could not read the hashrate') }
+              ? {
+                  result: 'success' as const,
+                  message: `${i18n('Estimated hashrate')}: ${num} Th/s`,
+                }
+              : {
+                  result: 'success' as const,
+                  message: i18n('Could not read the hashrate'),
+                }
           },
         },
       })
