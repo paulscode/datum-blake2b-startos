@@ -3,7 +3,7 @@
 DATUM Gateway serving Sia-style BLAKE2b work, so an existing Sia-compatible ASIC can
 mine the experimental BLAKE2b Bitcoin Knots chain. Packaged for StartOS 0.4.0.x.
 
-**Follows whichever chain the node is on** (regtest or testnet4), and **solo mining
+**Follows whichever chain the node is on** (regtest or mainnet), and **solo mining
 only**: pooled BLAKE2b is not possible today because the pool server is
 closed-source and SHA256d-only.
 
@@ -21,6 +21,24 @@ chain, and that is not a matter of anyone adding an endpoint. A pool validates
 shares against the chain's proof of work, so a BLAKE2b share is unintelligible to
 a SHA256d pool. GridPool's `datum.test.gridpool.net:3009` is ordinary testnet4 and
 cannot help.
+
+## Install
+
+Add this registry to StartOS and install from it:
+
+```
+https://start9.paulscode.com
+```
+
+That is the quickest route, and it is the one to use unless you have a reason to
+build. Installing from the registry gets the signed release; building from source
+gets whatever is in the working tree, which is not the same thing.
+
+`knots-blake2b` is a dependency and comes from the same registry. Install it first
+if StartOS does not offer to.
+
+Building from source is for developing on the package, and is covered under
+[Build](#build).
 
 ## The dashboard's admin pages
 
