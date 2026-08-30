@@ -48,7 +48,7 @@ async function scrape(
 }
 
 export const main = sdk.setupMain(async ({ effects }) => {
-  console.info(i18n('Starting Datum Gateway BLAKE2b'))
+  console.info(i18n('Starting Datum Gateway (BLAKE2b) Companion'))
 
   // Resolve the node over the LXC bridge from its binding's own address list.
   // Not `net.assignedPort`, which silently resolves null the day the dependency

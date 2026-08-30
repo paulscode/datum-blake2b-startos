@@ -7,7 +7,7 @@ export const manifest = setupManifest({
   // both must be installable at once. See PLAN Q12 on why the chain stays out of
   // the id and in the title.
   id: 'datum-blake2b',
-  title: 'Datum Gateway BLAKE2b',
+  title: 'Datum Gateway (BLAKE2b) Companion',
   license: 'MIT',
   packageRepo: 'https://github.com/paulscode/datum-blake2b-startos',
   upstreamRepo: 'https://github.com/OCEAN-xyz/datum_gateway',
