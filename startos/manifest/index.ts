@@ -42,7 +42,7 @@ export const manifest = setupManifest({
       description: knotsDependencyDescription,
       optional: false,
       metadata: {
-        title: 'Bitcoin Knots BLAKE2b',
+        title: 'Bitcoin Knots (BLAKE2b) Companion',
         // A dependency icon is an absolute URL into the dependency's repo, not a
         // magic filename, so PNG is fine (E9). It is fetched by the StartOS UI,
         // which means the packaging repo has to be public for it to render.
