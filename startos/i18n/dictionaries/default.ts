@@ -1,7 +1,7 @@
 export const DEFAULT_LANG = 'en_US'
 
 const dict = {
-  'Starting Datum Gateway (BLAKE2b) Companion': 0,
+  'Starting Datum (BLAKE2b) Companion': 0,
   Stratum: 1,
   'Point your BLAKE2b ASIC at this address': 2,
   Dashboard: 3,
