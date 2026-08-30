@@ -1,5 +1,7 @@
 import { manifest as knotsManifest } from 'knots-blake2b-startos/startos/manifest'
 import {
+  chainDataSubdir,
+  chainFromConf,
   rpcHostId as knotsRpcHostId,
   rpcPort as knotsRpcPort,
 } from 'knots-blake2b-startos/startos/utils'
@@ -91,19 +93,29 @@ export const createCompatibilityReport = sdk.Action.withInput(
       async (sub) => {
         // Which chain the node is on, from its own generated config through the
         // mount we already have. bitcoind nests a non-mainnet chain's cookie in
-        // a subdirectory named for that chain, and this was hardcoded to
-        // regtest: on testnet4 the cookie was simply never found, so report.py
-        // fell back to "not checked" for block acceptance. That is the one
-        // question the report exists to answer, and it would have gone quiet
-        // rather than wrong, which is harder to notice.
+        // a subdirectory named for that chain and keeps mainnet's at the root,
+        // so this decides where to look for the cookie.
+        //
+        // The rule is `chainFromConf`'s, in the node package, rather than a
+        // second copy here. The copy is how this broke: it listed the chains by
+        // hand and fell back to regtest, so mainnet, which is spelled by the
+        // *absence* of a chain line rather than by `mainnet=1`, resolved to
+        // regtest and the cookie was looked for in a directory that does not
+        // exist there. report.py then reported block acceptance as "not
+        // checked", which is the one question this report exists to answer, and
+        // it went quiet rather than wrong, which is harder to notice. The same
+        // bug hit testnet4 before it hit mainnet; sharing the rule is what stops
+        // it happening to the next chain.
         const knotsConf = await sub
           .execFail(['cat', `${knotsMountpoint}/bitcoin.conf`])
           .then((r) => r.stdout.toString())
           .catch(() => '')
-        const chain =
-          (['regtest', 'testnet4'] as const).find((c) =>
-            knotsConf.split('\n').some((l) => l.trim() === `${c}=1`),
-          ) ?? 'regtest'
+        const chain = chainFromConf(knotsConf)
+        // Empty for mainnet, so the path collapses to `<mount>/.cookie`.
+        const chainSubdir = chainDataSubdir(chain)
+        const cookiePath = chainSubdir
+          ? `${knotsMountpoint}/${chainSubdir}/.cookie`
+          : `${knotsMountpoint}/.cookie`
 
         const { stdout } = await sub.execFail([
           'python3',
@@ -114,7 +126,7 @@ export const createCompatibilityReport = sdk.Action.withInput(
           '--rpc-url',
           rpcAddr ? `http://${rpcAddr}` : '',
           '--rpc-cookie',
-          `${knotsMountpoint}/${chain}/.cookie`,
+          cookiePath,
           '--make',
           input.make || '',
           '--model',

@@ -179,6 +179,11 @@ does just as well.</p>
 
 
 CHAINS = ("regtest", "mainnet")
+# Must match the node image's own default (`CHAIN="${CHAIN:-mainnet}"` in its
+# entrypoint). This page reads the settings file, and when the file names no
+# chain the node falls back to that default, so falling back to anything else
+# here would show a chain the node is not on.
+DEFAULT_CHAIN = "mainnet"
 # Storage presets, in MiB. 0 keeps the whole chain. bitcoind's floor for a budget
 # is 550, and 1 is its manual mode, which reports the node as pruned while never
 # discarding anything: not offered, because it grows without bound and there is no
@@ -265,9 +270,9 @@ class Handler(BaseHTTPRequestHandler):
                 settings_msg=SETTINGS_READONLY,
             ).replace("<button type=\"submit\">Save and restart</button>", "")
         s = read_settings(path)
-        chain = s.get("chain") or "regtest"
+        chain = s.get("chain") or DEFAULT_CHAIN
         if chain not in CHAINS:
-            chain = "regtest"
+            chain = DEFAULT_CHAIN
         prune = str(s.get("prune", DEFAULT_PRUNE))
         if prune not in dict(PRUNE_CHOICES):
             # A value set elsewhere, or one of bitcoind's other legal settings.
