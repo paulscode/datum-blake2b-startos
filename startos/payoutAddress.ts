@@ -67,11 +67,15 @@ export function isPayoutChain(chain: string): chain is PayoutChain {
  * by chain and no record of which chain it was set on. Everywhere else the chain
  * is known and should be used instead of guessed.
  *
- * `null` when the prefix cannot decide, which is the honest answer for the base58
- * test prefixes: regtest and testnet4 share `m`, `n` and `2`, and that shared
- * prefix is exactly why a stale address was accepted on the wrong chain rather
- * than rejected. Leaving it unassigned means the operator is asked, which is the
- * only safe answer when the alternative is paying to a wallet they may not have.
+ * `null` for anything that is not recognisably mainnet, which now means base58
+ * `m`, `n` and `2`. Those were once ambiguous, shared between regtest and the
+ * public test network, and that ambiguity was the reason for answering null.
+ * With testnet4 gone they identify regtest on their own, so this could decide.
+ * It still does not: an address carried over from before addresses were keyed by
+ * chain has no record of the chain it was set on, and filing it automatically
+ * would be inferring intent from a prefix. Leaving it unassigned means the
+ * operator is asked once, which is cheap next to paying block rewards to a
+ * wallet they may not have.
  */
 export function chainFromAddress(address: string): PayoutChain | null {
   const addr = address.trim()
