@@ -1,3 +1,5 @@
+import { type Chain } from 'knots-blake2b-startos/startos/utils'
+
 /**
  * What counts as a payout address, per chain.
  *
@@ -13,8 +15,16 @@
  * the node for a legacy one there.
  */
 
-/** Chains this gateway can be pointed at, as bitcoind names them. */
-export type PayoutChain = 'main' | 'regtest' | 'testnet4'
+/**
+ * Chains this gateway can be pointed at, named exactly as the node package names them.
+ *
+ * Derived from that package's `Chain` rather than written out, because the two were written out
+ * separately once and drifted: this file said `main` while the node package said `mainnet`, so
+ * `isPayoutChain` rejected the very chain the node reported and Set Payout Address failed on
+ * mainnet with a message telling the user to start the service, which could not have helped.
+ * Deriving it makes the next divergence a compile error instead.
+ */
+export type PayoutChain = Chain
 
 type Rule = {
   /** Accepts an address usable for payouts on this chain. */
@@ -26,15 +36,9 @@ type Rule = {
 const RULES: Record<PayoutChain, Rule> = {
   // Mainnet: bech32 and bech32m under `bc`, plus legacy P2PKH and P2SH. This is
   // real money, so nothing test-shaped is accepted here.
-  main: {
+  mainnet: {
     pattern: /^(bc1[a-z0-9]{25,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,39})$/,
     expected: 'an address starting with bc1, 1 or 3',
-  },
-  // The public test network: `tb` bech32, or the base58 prefixes test chains
-  // share.
-  testnet4: {
-    pattern: /^(tb1[a-z0-9]{25,87}|[mn2][a-km-zA-HJ-NP-Z1-9]{25,39})$/,
-    expected: 'an address starting with tb1, m, n or 2',
   },
   // Regtest: legacy only, because DATUM cannot decode bcrt1 at all. Accepting one
   // here would move the failure to a gateway that will not start.
@@ -72,7 +76,6 @@ export function isPayoutChain(chain: string): chain is PayoutChain {
 export function chainFromAddress(address: string): PayoutChain | null {
   const addr = address.trim()
   if (!addr) return null
-  if (RULES.main.pattern.test(addr)) return 'main'
-  if (/^tb1[a-z0-9]{25,87}$/.test(addr)) return 'testnet4'
+  if (RULES.mainnet.pattern.test(addr)) return 'mainnet'
   return null
 }

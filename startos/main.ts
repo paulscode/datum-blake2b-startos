@@ -143,14 +143,17 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const store = await storeJson.read().const(effects)
 
-  // Record which chain the node is on. Actions cannot read the node config
-  // the way this can, and Set Payout Address has to know the chain to check
-  // an address against it. Writing it here means the answer is observed
-  // rather than guessed from an address prefix, which for the shared base58
-  // test prefixes cannot be guessed at all.
-  if (store?.nodeChain !== chain) {
-    await storeJson.merge(effects, { nodeChain: chain })
-  }
+  // The chain is deliberately NOT recorded here any more.
+  //
+  // It used to be merged into the store for Set Payout Address to read, and that was wrong twice.
+  // It made the one action a user needs before the first start depend on a start having
+  // happened, which on a fresh install is a deadlock: the critical task refuses to start the
+  // service until an address is set. And it never worked at all, because `store` above is read
+  // with `.const(effects)` and the SDK rejects a write to a file already read as a constant in
+  // the same context. The merge threw "write after const" and took the whole start down.
+  //
+  // The action now reads the node's own config instead, which is this same source and cannot go
+  // stale. See nodeChain.ts.
 
   const headline = knotsConf
     ?.split('\n')

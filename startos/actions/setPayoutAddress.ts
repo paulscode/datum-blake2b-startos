@@ -1,6 +1,7 @@
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { expectedFor, isPayoutChain, isValidFor } from '../payoutAddress'
+import { readNodeChain } from '../nodeChain'
 import { sdk } from '../sdk'
 
 const { InputSpec, Value } = sdk
@@ -14,15 +15,19 @@ const { InputSpec, Value } = sdk
  * user switched the node to regtest. A wording that is true on both chains beats
  * one that is more precise and sometimes wrong.
  *
- * The pattern still has to refuse mainnet, and that is its real job: these coins
- * are worthless, so a `bc1...` or `1.../3...` address here is a key the user may
- * not hold, on a chain this will never pay.
+ * Mainnet is now one of the chains this accepts, and that reverses what this
+ * check is for. It used to refuse `bc1...` outright, on the reasoning that these
+ * coins were worthless and such an address had to be a mistake. BLAKE2b
+ * activated on mainnet at block 961640, so the rewards are real and a mainnet
+ * address is the expected value there. What matters now is that the address
+ * matches the chain the node is actually on, which is why the handler reads that
+ * chain rather than trusting a shape.
  *
  * `bcrt1...` is absent on purpose even though regtest produces it. DATUM's
  * parser handles bech32 only for the `bc` and `tb` prefixes, so it cannot
  * convert a regtest bech32 address, and accepting one here would take a value
- * the gateway then refuses. Get Payout Address hands out base58 on regtest and
- * `tb1...` on testnet4 for exactly that reason.
+ * the gateway then refuses. Get Payout Address hands out a base58 address on
+ * regtest for exactly that reason.
  */
 const inputSpec = InputSpec.of({
   poolAddress: Value.text({
@@ -61,7 +66,7 @@ export const setPayoutAddress = sdk.Action.withInput(
   // Prefill with whatever is set, so changing it later is an edit rather than a
   // retype from nothing.
   async ({ effects }) => {
-    const nodeChain = (await storeJson.read((s) => s.nodeChain).once()) ?? ''
+    const nodeChain = (await readNodeChain(effects)) ?? ''
     const byChain = (await storeJson.read((s) => s.poolAddresses).once()) ?? {}
     const current = byChain[nodeChain]
     return current ? { poolAddress: current } : {}
@@ -76,16 +81,17 @@ export const setPayoutAddress = sdk.Action.withInput(
     // silently sends someone's block rewards to an address they do not control.
     const addr = input.poolAddress.trim()
 
-    // Which chain this address is for. main.ts records it on every start, so it is
-    // the chain the node is actually on rather than one guessed from the address,
-    // which for the shared base58 test prefixes cannot be guessed at all.
-    const nodeChain = (await storeJson.read((s) => s.nodeChain).once()) ?? ''
+    // Which chain this address is for, read from the node's own config rather than from anything
+    // this service recorded earlier. Asking the node directly is what lets this be set before the
+    // first start, which is when it is first needed and, because the critical task blocks starting
+    // until an address exists, the only time it can be set at all on a fresh install.
+    const nodeChain = (await readNodeChain(effects)) ?? ''
     if (!isPayoutChain(nodeChain)) {
       throw new Error(
-        `Cannot tell which chain this node is on, so an address cannot be checked ` +
-          `against it. Start the service once and try again: it records the chain ` +
-          `when it starts. Setting an address for the wrong chain is how block ` +
-          `rewards end up in a wallet you do not have.`,
+        `Cannot tell which chain the node is on, so an address cannot be checked against it. ` +
+          `Check that the BLAKE2b node is installed and has been started at least once, so it has ` +
+          `written its configuration. Setting an address for the wrong chain is how block rewards ` +
+          `end up in a wallet you do not have.`,
       )
     }
 

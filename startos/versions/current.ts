@@ -1,21 +1,23 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
+import { storeJson } from '../fileModels/store.json'
 
 const notes =
-  'The Compatibility Report works on mainnet. It reports whether your node ' +
-  'accepted the blocks your miner found, and to ask the node that it needs the ' +
-  "node's RPC credentials. It looked for them in a directory that only exists " +
-  'on a private chain, so on mainnet it never found them and reported block ' +
-  'acceptance as "not checked". That is the one question the report exists to ' +
-  'answer, and it went quiet rather than wrong, which is easy to miss. Reports ' +
-  'made on mainnet before this update understated what your miner did. ' +
+  'Fixes Set Payout Address, which failed on mainnet with a message telling you ' +
+  'to start the service, and starting the service could not have helped. ' +
   ' ' +
-  'On deployments without a settings form, such as Umbrel and plain Docker, ' +
-  'the page this gateway serves now shows mainnet when no chain has been ' +
-  'chosen, matching what the node actually runs. It showed the private chain, ' +
-  'so the page and the node could disagree about which chain you were on.'
+  'Two faults, one behind the other. The gateway recorded which chain your node ' +
+  'was on when it started, and the address check compared that against a list ' +
+  'that spelled mainnet differently, so it never matched. Behind that, the ' +
+  'recording had never worked at all: it crashed the start, which is also why ' +
+  'the service would not stay running. ' +
+  ' ' +
+  'The address check now reads the chain from your node directly instead of ' +
+  'from anything the gateway saved earlier. That also fixes the order you had ' +
+  'to do things in: the payout address can be set before the first start, which ' +
+  'is when it is needed, since the service will not start without one.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:37',
+  version: '1.0.0:38',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -24,14 +26,27 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. This version changes where the Compatibility Report
-    // looks for the node's RPC cookie and what the settings page shows when no
-    // chain has been chosen. Neither reads or writes stored state, so there is
-    // nothing on disk to bring forward.
+    // Re-file a payout address stored under the old spelling of mainnet.
     //
-    // The payout-address split that :36 needed lives in `v1_0_0_36.ts`, with the
-    // version that introduced it, rather than being re-declared here.
-    up: async ({ effects }) => {},
+    // Addresses are keyed by chain, and this version renames that key from `main` to `mainnet` so
+    // it matches what the node package calls the chain. The mismatch is the bug being fixed, but
+    // anyone whose address was filed by the :36 migration has it under `main` already, and every
+    // reader now looks for `mainnet`. Left alone their address would silently read as unset: the
+    // gateway would refuse to start and the critical task would ask them to set it again.
+    //
+    // Only moved when there is nothing already under the new key, so an address set deliberately
+    // since is never overwritten by an older one.
+    up: async ({ effects }) => {
+      const store = await storeJson.read().once()
+      const byChain = store?.poolAddresses ?? {}
+      const legacy = (byChain as Record<string, string>)['main']
+      if (!legacy || byChain['mainnet']) return
+
+      const { main: _dropped, ...rest } = byChain as Record<string, string>
+      await storeJson.merge(effects, {
+        poolAddresses: { ...rest, mainnet: legacy },
+      })
+    },
     down: IMPOSSIBLE,
   },
 })
