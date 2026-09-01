@@ -1,25 +1,27 @@
 # DATUM Gateway with BLAKE2b header-v2 support.
 #
-# Built from our fork, which is now upstream master plus one test-only commit.
+# Built from our fork, which now carries nothing of its own: it is a mirror of
+# upstream master, kept so the pin below cannot move out from under us.
 #
-# The h1 complete-version bug we carried a fix for is fixed upstream in 56c31f4,
-# in datum_pow.c rather than at the call site where our patch put it, which is the
-# better place: the commitment function is now correct for any caller. That patch
-# is therefore gone from this build.
+# Both patches this build used to carry are upstream. The h1 complete-version bug
+# is fixed in 56c31f4, in datum_pow.c rather than at the call site where ours put
+# it, which is the better place: the commitment function is now correct for any
+# caller. The test correction is 57f1aee, which replaces a "canonical profile-0
+# vector published with Knots' header-v2 implementation" that was not the
+# published vector, passing m_flags 0x5c where Knots' block_header_v2.json has
+# 0x1c and expecting values it had computed for itself. 0x5c also sets 0x40,
+# which Knots rejects as bad-flags-highbits.
 #
-# What remains is the test correction. Upstream's "canonical profile-0 vector
-# published with Knots' header-v2 implementation" is not the published vector: it
-# passes m_flags 0x5c where Knots' block_header_v2.json has 0x1c, and expects
-# values it computed for itself. 0x5c also sets 0x40, which Knots rejects as
-# bad-flags-highbits. Dropping to upstream master alone would mean building
-# against a gateway whose BLAKE2b vectors are checked only against themselves.
+# `--test` below is therefore now checking the gateway against Knots' own vectors
+# rather than against itself, which is the only comparison that catches the
+# gateway and the node disagreeing.
 #
 # Pinned by commit, not by branch. A branch name is a moving target and this is
 # the one input that decides whether the work we hand an ASIC matches consensus.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=39f9c3c82df72736f0ac9417ac388885ce32340e
+ARG DATUM_REF=f74c22aa1f048cef5bf0440b89f86427e658fb89
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \
