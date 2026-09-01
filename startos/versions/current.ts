@@ -1,35 +1,32 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Lets a miner ask for the share difficulty it should run at, by putting it in ' +
-  'the Stratum password. Send `d=8192` and the gateway starts that miner there ' +
-  'and holds it as a floor; send `fd=8192` and it holds exactly there with no ' +
-  'vardiff at all. Anything the gateway does not recognise is ignored, so the `x` ' +
-  'that almost every miner sends means what it always did and no existing miner ' +
-  'changes difficulty on upgrade. ' +
+  'Hardens the difficulty request added in 1.0.0.41, from a review done while ' +
+  'preparing the change for upstream. Three things came out of it. ' +
   ' ' +
-  'This exists because the password is often the only field an operator can set. ' +
-  'Rental marketplaces and some firmware let you configure a pool host, port, ' +
-  'worker name and password and nothing else, with no way to make the miner ' +
-  'negotiate difficulty through the protocol. A small miner left on a difficulty ' +
-  'meant for a large one produces very few shares, which is what makes a rented ' +
-  'rig look like it is underdelivering when it is not. ' +
+  'The password was read on every `mining.authorize`, and a miner may send that ' +
+  'more than once on one connection. Since a changed difficulty sends fresh work, ' +
+  'a miner alternating between two values could make the gateway build and send a ' +
+  'full job per request, where it used to reply with a small acknowledgement. It ' +
+  'is now read once per connection, which is also what asking for a starting ' +
+  'difficulty means. This is the one worth updating for if you point rented ' +
+  'hashrate at this gateway, because the miners doing so are not yours. ' +
   ' ' +
-  'The request sets a floor and not merely a starting point. Difficulty is adjusted ' +
-  'downward by halving with a clamp, so setting only the starting value is undone ' +
-  'at the first adjustment, which would leave the feature doing nothing for exactly ' +
-  'the small miners it is for. ' +
+  'A request is now bounded. The number was parsed in a way that saturates rather ' +
+  'than failing, so a long enough run of digits arrived as the largest 64-bit ' +
+  'value and went into the difficulty and share-target maths unchecked. Requests ' +
+  'beyond anything usable are ignored rather than clamped: the request is a floor, ' +
+  'so a value too high for the miner cannot be walked back down, and ignoring it ' +
+  'leaves ordinary difficulty adjustment running. ' +
   ' ' +
-  'A request cannot lower difficulty past the limits that are not preferences: the ' +
-  'new `stratum.vardiff_client_min` setting, below which no miner may ask, the ' +
-  'compatibility floor of a miner recognised as needing one, and the minimum the ' +
-  'pool itself declares when mining pooled. `vardiff_client_min` is in turn bounded ' +
-  'by `vardiff_min`, so ' +
-  'it can never be stricter than the difficulty this gateway already hands out ' +
-  'unasked. Values round to a power of two, matching how vardiff steps.'
+  'Setting `stratum.vardiff_client_min` to 0 reached an undefined shift before the ' +
+  'check that rejects it. It is now rejected first, with a clear message. ' +
+  ' ' +
+  'No miner that was working is affected, and nothing about how a request is ' +
+  'honoured has changed.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:41',
+  version: '1.0.0:42',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -38,9 +35,9 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. This version only adds a way for a miner to ask for its
-    // own difficulty; it changes no setting, no stored value and no on-disk layout,
-    // and a miner that asks for nothing behaves exactly as before.
+    // Nothing to migrate. This version only changes how a difficulty request is
+    // parsed and how often it is read; no setting, stored value or on-disk layout
+    // changes, and a miner that asks for nothing behaves exactly as before.
     //
     // The payout-address re-file that :38 needed lives in `v1_0_0_38.ts`, with the
     // version that introduced it, rather than being carried forward here.
