@@ -275,6 +275,55 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }),
         },
       })
+      /**
+       * Whether a miner could connect right now.
+       *
+       * Named `stratum-interface` to match the official Datum package, because a
+       * dependent names the checks it requires and StartOS treats an id that does
+       * not exist exactly like one that is failing. Without this, anything written
+       * against the official gateway could not require a check from this one.
+       *
+       * Not a plain `checkPortListening`, and the difference matters. DATUM does
+       * not bind the stratum port at startup: `datum_stratum_v1_socket_thread_init`
+       * blocks on its first stratum job and only then starts the listener thread
+       * ("Waiting for our first job before starting listening server..."), with no
+       * timeout. A node that is still syncing produces no template, so the port
+       * stays closed for as long as the sync takes, which is hours on a fresh node.
+       *
+       * `checkPortListening` calls a closed port a failure, so the honest report
+       * for that window is `loading` rather than red. Red would say something is
+       * broken during the one period where waiting is the correct behaviour, and
+       * would send someone looking for a fault in the gateway rather than at their
+       * node's sync progress.
+       */
+      .addHealthCheck('stratum-interface', {
+        requires: ['gateway'],
+        ready: {
+          display: i18n('Stratum Interface'),
+          fn: async () => {
+            const res = await sdk.healthCheck.checkPortListening(
+              effects,
+              stratumPort,
+              {
+                timeout: 1000,
+                successMessage: i18n('Miners can connect'),
+                // Not shown: every non-success is remapped below. Required by the
+                // signature, and kept accurate in case that ever stops being true.
+                errorMessage: i18n(
+                  'Waiting for the node. The stratum port opens once this gateway has its first block template, which needs a node that has finished syncing.',
+                ),
+              },
+            )
+            if (res.result === 'success') return res
+            return {
+              result: 'loading' as const,
+              message: i18n(
+                'Waiting for the node. The stratum port opens once this gateway has its first block template, which needs a node that has finished syncing.',
+              ),
+            }
+          },
+        },
+      })
       .addHealthCheck('stratum-clients-connected', {
         requires: ['gateway'],
         ready: {
