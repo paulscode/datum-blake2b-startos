@@ -127,7 +127,6 @@ const dict = {
   'Drop a miner that has sent nothing for this many seconds. 0 disables.': 123,
   'How the gateway serves work to your mining hardware.': 124,
   'The dashboard is ready': 125,
-  'Stratum Interface': 141,
   'Miners can connect': 142,
   'Waiting for the node. The stratum port opens once this gateway has its first block template, which needs a node that has finished syncing.': 143,
   'The dashboard is not ready': 126,

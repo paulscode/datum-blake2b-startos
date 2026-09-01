@@ -212,11 +212,38 @@ export const main = sdk.setupMain(async ({ effects }) => {
         exec: { command: ['/usr/local/bin/entrypoint.sh'], env },
         ready: {
           display: i18n('Stratum'),
-          fn: () =>
-            sdk.healthCheck.checkPortListening(effects, stratumPort, {
-              successMessage: i18n('The gateway is serving work'),
-              errorMessage: i18n('The gateway is not serving work yet'),
-            }),
+          // Reports `waiting`, not `failure`, while the port is closed, and the
+          // distinction is the whole story of this check.
+          //
+          // DATUM does not bind stratum at startup. `datum_stratum_v1_socket_thread_init`
+          // blocks on its first stratum job and only then starts the listener
+          // ("Waiting for our first job before starting listening server..."), with
+          // no timeout. No template means no job, and a node in initial sync has no
+          // template to give, so on a fresh node this port stays shut for hours.
+          //
+          // `waiting` is the documented state for "blocked on an external
+          // dependency", which is exactly true here: the gateway is fine and the
+          // node is not ready. Red for hours would send someone looking for a fault
+          // in the gateway rather than at their node's sync progress. Only
+          // `success` gates a dependent, so the `capture` daemon still waits either
+          // way and nothing about startup ordering changes.
+          fn: async () => {
+            const res = await sdk.healthCheck.checkPortListening(
+              effects,
+              stratumPort,
+              {
+                successMessage: i18n('The gateway is serving work'),
+                errorMessage: i18n('The gateway is not serving work yet'),
+              },
+            )
+            if (res.result === 'success') return res
+            return {
+              result: 'waiting' as const,
+              message: i18n(
+                'Waiting for the node. The stratum port opens once this gateway has its first block template, which needs a node that has finished syncing.',
+              ),
+            }
+          },
         },
         requires: ['chown'],
       })
@@ -283,45 +310,31 @@ export const main = sdk.setupMain(async ({ effects }) => {
        * not exist exactly like one that is failing. Without this, anything written
        * against the official gateway could not require a check from this one.
        *
-       * Not a plain `checkPortListening`, and the difference matters. DATUM does
-       * not bind the stratum port at startup: `datum_stratum_v1_socket_thread_init`
-       * blocks on its first stratum job and only then starts the listener thread
-       * ("Waiting for our first job before starting listening server..."), with no
-       * timeout. A node that is still syncing produces no template, so the port
-       * stays closed for as long as the sync takes, which is hours on a fresh node.
+       * `display: null`, so it exists as a contract without appearing in the UI.
+       * The `gateway` daemon's own ready check already probes this port and is
+       * shown as "Stratum". Two visible rows for one condition is worse than one,
+       * and they would inevitably drift: this one and that one would have to be
+       * kept saying the same thing forever. The user reads "Stratum"; a dependent
+       * requires this id; neither is duplicated.
        *
-       * `checkPortListening` calls a closed port a failure, so the honest report
-       * for that window is `loading` rather than red. Red would say something is
-       * broken during the one period where waiting is the correct behaviour, and
-       * would send someone looking for a fault in the gateway rather than at their
-       * node's sync progress.
+       * The port is what it reports, deliberately, rather than mirroring the
+       * daemon's state. `requires: ['gateway']` already means this cannot run
+       * before the daemon is ready, so in practice it answers the same question,
+       * but a check that probes the thing it names is one less indirection to
+       * reason about if the daemon's readiness ever means something else.
        */
       .addHealthCheck('stratum-interface', {
         requires: ['gateway'],
         ready: {
-          display: i18n('Stratum Interface'),
-          fn: async () => {
-            const res = await sdk.healthCheck.checkPortListening(
-              effects,
-              stratumPort,
-              {
-                timeout: 1000,
-                successMessage: i18n('Miners can connect'),
-                // Not shown: every non-success is remapped below. Required by the
-                // signature, and kept accurate in case that ever stops being true.
-                errorMessage: i18n(
-                  'Waiting for the node. The stratum port opens once this gateway has its first block template, which needs a node that has finished syncing.',
-                ),
-              },
-            )
-            if (res.result === 'success') return res
-            return {
-              result: 'loading' as const,
-              message: i18n(
+          display: null,
+          fn: () =>
+            sdk.healthCheck.checkPortListening(effects, stratumPort, {
+              timeout: 1000,
+              successMessage: i18n('Miners can connect'),
+              errorMessage: i18n(
                 'Waiting for the node. The stratum port opens once this gateway has its first block template, which needs a node that has finished syncing.',
               ),
-            }
-          },
+            }),
         },
       })
       .addHealthCheck('stratum-clients-connected', {
