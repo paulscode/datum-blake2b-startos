@@ -2,14 +2,17 @@
 
 For a Linux machine with Docker, and no StartOS or Umbrel.
 
-This runs the same images as those packages, wired the way the Umbrel app wires
-them: the gateway asks your node for a payout address by itself, and a page shows
-the address to point your miner at. There is nothing to configure.
+This runs the same images as those packages: a Bitcoin Knots node following the
+BLAKE2b chain, and a DATUM Gateway serving Sia-style BLAKE2b work to your ASIC.
+The gateway asks the node for a payout address by itself, so there is nothing to
+configure before starting.
 
-**This is a private test chain, not Bitcoin.** It starts empty, has no peers, and
-the coins it mines are worthless by construction and cannot be sent anywhere.
-BLAKE2b is a proposed change to Bitcoin's proof of work that has not been adopted.
-The point is to find out whether your ASIC can mine it.
+**This mines a real chain.** Bitcoin's mainnet split on 30 August 2026, and from
+block 961640 one of the two chains uses BLAKE2b for proof of work instead of
+SHA256d. A block you find pays its whole subsidy to an address in the node's own
+wallet, which lives in a Docker volume. Back it up, or set `POOL_ADDRESS` to an
+address from a wallet you already back up. `docker compose down -v` deletes that
+volume.
 
 ## Start it
 
@@ -21,149 +24,70 @@ chmod +x start.sh
 ./start.sh
 ```
 
-It prints the page to open and the address to point your miner at. Nothing else
-to configure.
+It prints the address to point your miner at and the dashboard to watch. Nothing
+else to configure.
 
 `start.sh` exists because of one thing this has that StartOS and Umbrel do not:
 nobody assigns ports for you. If something on the machine already has one, Docker
-fails outright with a message that names the port and nothing else:
+fails outright with a message that names the port and nothing else. `start.sh`
+finds free ones, writes them to `.env`, and after the first run plain
+`docker compose up -d` and `docker compose down` keep the same choices.
+
+## Pointing a miner at it
+
+Set the pool in your miner's own web interface:
 
 ```
-failed to bind host port 0.0.0.0:7152/tcp: address already in use
+stratum+tcp://192.168.1.50:23336
 ```
 
-Picking a replacement by hand means knowing what that means, and then possibly
-doing it again for the next one. The script finds free ports instead, writes them
-to `.env`, and tells you what it chose. After the first run, plain
-`docker compose up -d` and `docker compose down` work and keep the same ports.
+**Use the machine's IP address, not a `.local` name.** Most ASIC firmware has no
+mDNS resolver, so a `.local` address fails silently and the miner just reports
+that the pool is not ready.
 
-To have them chosen again, delete `.env` and run `./start.sh` again.
+The worker name and password are not used. This is solo mining, so the payout
+comes entirely from the configured address; put something readable as the worker
+so you can tell miners apart on the dashboard.
 
-### Or without the script
-
-```bash
-HOST_IP=$(ip -4 route get 1.1.1.1 | grep -oP 'src \K\S+') docker compose up -d
-```
-
-`HOST_IP` is the address your miner will be told to connect to. It has to be
-passed in: a container can only see its own address on the Docker network, and
-most ASIC firmware has no mDNS resolver, so a `.local` name fails silently and the
-miner just reports that the pool is not ready.
-
-If you get `address already in use`, move that port and try again:
-
-```bash
-HOST_IP=... DASHBOARD_PORT=8152 docker compose up -d
-```
-
-The variable to set for each port is in the table below.
-
-## Choosing a chain
-
-The page has a **Network** card at the top with two choices:
-
-- **Private test chain (regtest)**, the default. Starts empty, blocks are instant,
-  nothing is shared with anyone.
-- **Public BLAKE2b test network (testnet4)**, shared with other testers. A real
-  chain, so the first sync takes a while.
-
-Pick one and press **Save and restart**. The node and the gateway notice and come
-back on the new chain by themselves; give them a minute and reload.
-
-**Switching keeps both.** Each chain has its own blocks, wallet and payout
-address, so switching back returns you to where you left off. Nothing is deleted.
-
-The same card takes a payout address. Leave it blank and your node is asked for
-one, which is the normal case. It is remembered per chain, because the wallets are
-separate: an address made on one chain belongs to a wallet the other never opens.
-
-The headline and the peer list are not settings. Both are decided by the chain,
-and testnet4 in particular requires an exact headline and a starting set of peers
-its own DNS seeds cannot supply, so the node sets them itself.
-
-## Point your miner at it
-
-Set the pool in your miner's own web interface to the address the page shows:
-
-```
-stratum+tcp://YOUR-SERVER-IP:23336
-```
-
-The worker name and password are not used. Put anything readable as the worker so
-you can tell miners apart. You do **not** put a payout address there: some pools
-want `address.worker`, this does not, because it is not pooled mining.
-
-Then watch the dashboard. Blocks come very fast, because the test chain has almost
-no difficulty. That is expected.
+**The Stratum port stays shut until the node has synced.** DATUM does not open it
+until it has a block template, and a node still downloading the chain has none to
+give. On a first run that is a while. The node is pruned to 5 GB by default, which
+is enough to mine: a gateway needs the tip, not history.
 
 ## Ports
 
-| | Default | Override with |
+| | default | variable |
 |---|---|---|
-| The page to open | 7153 | `PAGE_PORT` |
-| Stratum | 23336 | `STRATUM_PORT` |
-| Compatibility capture | 23337 | `CAPTURE_PORT` |
-| Mining dashboard | 7152 | `DASHBOARD_PORT` |
+| Stratum, for your miner | 23336 | `STRATUM_PORT` |
+| The gateway's dashboard | 7152 | `DASHBOARD_PORT` |
 
-Nothing assigns ports for you here the way StartOS and Umbrel do, so a clash with
-something already on the machine is a failed start rather than a warning. Move
-whichever one clashes:
+23336 rather than the official Datum app's 23334, so both can run on one machine.
 
 ```bash
-HOST_IP=... PAGE_PORT=8153 DASHBOARD_PORT=8152 docker compose up -d
+STRATUM_PORT=8336 DASHBOARD_PORT=8152 docker compose up -d
 ```
 
-Only the published side moves. The page reads these same variables, so a miner is
-always told the right number.
+Only the published side moves; the ports inside the containers are fixed.
 
-The node's RPC and P2P ports are deliberately not published. RPC authenticates
-with a cookie the node writes itself, and this chain has no peers to find.
+The dashboard has nothing in front of it, so treat it as visible to anything on
+your network. Its admin pages, which list connected miners, are off unless you set
+`ADMIN_PASSWORD` on the gateway service.
 
-## Reporting a miner nobody has tried
-
-Verified so far, all on stock firmware, across three manufacturers: **Goldshell**
-HS-Box, SC5 Pro and SC Box II, a **Bitmain** Antminer A3, and an **Innosilicon**
-S11. Three separate mining stacks (`intminer`, `cgminer`, `sgminer`) and every one
-of them spoke to the gateway identically. Other Sia BLAKE2b miners are expected to
-work but have not been tried.
-
-**GPUs do not work yet.** `ccminer -a sia` computes the right hash but speaks the
-other "Sia stratum" dialect, the one the Sia pools use, with 4-byte time and nonce
-fields and a ready-made merkle root. This gateway serves the dialect the ASICs
-speak. Tested on an RTX 3090 and a Quadro RTX 8000: it rejects the work and never
-starts hashing.
-
-If yours is not one of those, point it at the **capture** port (23337 by default)
-instead of the normal one for a minute or two. It mines exactly as normal; the only
-difference is that the conversation is written down. Then fill in the form on the
-page and copy what it gives you.
-
-Share it in the Bitcoin section of the forum,
-<https://paulscode.com/c/bitcoin/8>, which needs a free account to post in, or open
-an issue at <https://github.com/paulscode/datum-blake2b-startos/issues>.
-
-Nothing is sent anywhere on its own. You see exactly what you are sharing, and
-worker names are hashed and passwords dropped before anything reaches disk.
-
-To test a second miner, run `docker compose restart` first. That starts a fresh
-capture, so two miners do not get blended into one report.
-
-## Checking on it
+## Looking at the node
 
 ```bash
-docker compose logs -f gateway          # what the gateway is doing
-docker compose exec node bitcoin-cli -datadir=/data -regtest getblockcount
-docker compose exec node bitcoin-cli -datadir=/data -regtest -rpcwallet=mining getbalances
+docker compose exec node bitcoin-cli -datadir=/data -chain=main getblockchaininfo
+docker compose exec node bitcoin-cli -datadir=/data -chain=main -rpcwallet=mining getbalances
 ```
 
-Freshly mined coins need 100 more blocks before they count as spendable, so a new
-miner's balance sits under `immature`. That is normal.
+`-chain=main` rather than no flag: mainnet is bitcoind's default and there is no
+`-mainnet` option, but naming it explicitly beats relying on the absence of one.
 
-## Stopping it
+Freshly mined coins need 100 more blocks before they can be spent, so a working
+miner's balance sits in `immature` for about a day. That is normal.
 
-```bash
-docker compose down             # stop, keep the chain
-docker compose down -v          # stop and delete the chain and wallet
-```
+## Which miners work
 
-There is nothing of value in either, so `-v` is the right one if you are finished.
+See the service instructions in
+[`../instructions.md`](../instructions.md#which-miners-work). Five models across
+three manufacturers so far, all on stock firmware.

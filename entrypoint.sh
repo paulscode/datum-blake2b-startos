@@ -17,28 +17,19 @@ RPC_URL="${RPC_URL:-}"
 # fail to fetch templates, and let the health check show it.
 #
 # StartOS reads the cookie in the service definition and passes the two halves in
-# as environment. Umbrel has nothing that can do that, so read the cookie here
-# when COOKIE_PATH names one and no credentials were supplied. Same file, same
-# source of truth either way, and no RPC secret is generated, stored or shared.
-# Finding the cookie is not the same as having working credentials, and the
-# difference bites on a chain switch. Each chain keeps its own directory, so the
-# previous chain's cookie is still sitting there afterwards. The gateway restarts
-# faster than the node does, reads that stale file, and then every RPC call comes
-# back 401 while the gateway looks perfectly healthy and simply never gets a
-# template. Observed, not imagined.
+# as environment. Plain Docker has nothing that can do that, so read the cookie
+# here when COOKIE_PATH names one and no credentials were supplied. Same file,
+# same source of truth either way, and no RPC secret is generated, stored or
+# shared.
 #
-# So candidates are tried rather than chosen, and a candidate counts only if the
-# node answers with it. The same call returns the chain, so what is proven working
-# and what names the payout cache cannot disagree.
-cookie_candidates() {
-    local base="${KNOTS_MOUNT:-/knots}"
-    [ -n "${COOKIE_PATH:-}" ] && base="$(dirname "$(dirname "$COOKIE_PATH")")"
-    local c
-    for c in "${COOKIE_PATH:-}" "$base"/*/.cookie "$base"/.cookie; do
-        [ -n "$c" ] && [ -s "$c" ] && echo "$c"
-    done
-}
-
+# This used to search a set of candidate paths, because the node could be on any
+# of three chains and each kept its cookie in a different directory. The gateway
+# restarts faster than the node does, so on a chain switch it would find the
+# previous chain's cookie still sitting there, authenticate against nothing, and
+# then look perfectly healthy while every RPC call came back 401 and no template
+# ever arrived. Observed, not imagined. The node follows mainnet only now, whose
+# cookie is at the root of the data directory, so there is one path and the
+# stale-cookie failure it was working around cannot occur.
 rpc_with() {   # rpc_with USER PASS METHOD PARAMS
     wget -q -O - --header='Content-Type: application/json' \
         --http-user="$1" --http-password="$2" \
@@ -46,22 +37,24 @@ rpc_with() {   # rpc_with USER PASS METHOD PARAMS
         "$RPC_URL" 2>/dev/null || true
 }
 
-NODE_CHAIN=""
+COOKIE_PATH="${COOKIE_PATH:-${KNOTS_MOUNT:-/knots}/.cookie}"
 if [ -z "${RPC_USER:-}" ] && [ -n "$RPC_URL" ]; then
     for _ in $(seq 1 60); do
-        for _c in $(cookie_candidates); do
-            _u="$(cut -d: -f1 "$_c")"; _p="$(cut -d: -f2- "$_c")"
-            _chain="$(rpc_with "$_u" "$_p" getblockchaininfo '[]' \
-                | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
-            if [ -n "$_chain" ]; then
-                RPC_USER="$_u"; RPC_PASSWORD="$_p"; NODE_CHAIN="$_chain"
-                echo "datum-blake2b: authenticated with $_c (chain $NODE_CHAIN)"
-                break 2
+        if [ -s "$COOKIE_PATH" ]; then
+            _u="$(cut -d: -f1 "$COOKIE_PATH")"; _p="$(cut -d: -f2- "$COOKIE_PATH")"
+            # Finding the cookie is not the same as having working credentials.
+            # bitcoind rewrites it on every start, so a file that exists may still
+            # be the previous run's. Prove it before keeping it.
+            if [ -n "$(rpc_with "$_u" "$_p" getblockchaininfo '[]' \
+                    | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')" ]; then
+                RPC_USER="$_u"; RPC_PASSWORD="$_p"
+                echo "datum-blake2b: authenticated with $COOKIE_PATH"
+                break
             fi
-        done
+        fi
         sleep 2
     done
-    [ -n "${RPC_USER:-}" ] || echo "datum-blake2b: no cookie under ${KNOTS_MOUNT:-/knots} authenticated; starting without RPC credentials" >&2
+    [ -n "${RPC_USER:-}" ] || echo "datum-blake2b: $COOKIE_PATH did not authenticate; starting without RPC credentials" >&2
 fi
 
 _rpc() {
@@ -69,77 +62,30 @@ _rpc() {
     rpc_with "$RPC_USER" "$RPC_PASSWORD" "$1" "$2"
 }
 
-# StartOS passes credentials in directly, so the loop above never runs there and
-# the chain still has to be asked for.
-if [ -z "$NODE_CHAIN" ]; then
-    NODE_CHAIN="$(_rpc getblockchaininfo '[]' \
-        | sed -n 's/.*"chain":"\([^"]*\)".*/\1/p')"
-fi
-NODE_CHAIN="${NODE_CHAIN:-unknown}"
-
 # Where the block rewards go. StartOS asks for this with an action and refuses to
-# start without an answer. Umbrel has no equivalent, and prompting is the whole
-# reason that flow exists, so there ask the node for an address instead and keep
-# the first one it gives. It is the user's own node and their own wallet, so this
-# is not inventing an address, only saving them a step.
+# start without an answer. Plain Docker has no equivalent, and prompting is the
+# whole reason that flow exists, so there ask the node for an address instead and
+# keep the first one it gives. It is the user's own node and their own wallet, so
+# this is not inventing an address, only saving them a step.
 #
-# Address type follows the chain, for the same reason the node's Get Payout
-# Address action does: DATUM's parser understands bech32 only for the bc and tb
-# prefixes (datum_utils.c), so a regtest bcrt1 address is rejected downstream
-# while testnet4's tb1 goes straight through. Legacy is the regtest workaround,
-# not a preference, and it should not follow onto a chain that does not need it.
-# The same settings file the node reads, when one is mounted. It is how the page
-# this image serves reaches a running service on platforms with no settings form.
-SETTINGS="${SETTINGS_FILE:-/config/settings.json}"
-settings_get() {
-    [ -s "$SETTINGS" ] || return 1
-    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$SETTINGS" | head -1
-}
-# A payout address set there wins over the cache, since it is the newer answer and
-# somebody typed it on purpose. Per chain, for the reason below.
-_set_addr="$(settings_get "payout_address_${NODE_CHAIN}" || true)"
-if [ -z "${POOL_ADDRESS:-}" ] && [ -n "${_set_addr:-}" ]; then
-    POOL_ADDRESS="$_set_addr"
-    echo "datum-blake2b: payout address for ${NODE_CHAIN} from $SETTINGS"
-fi
-
-# Cached per chain. bitcoind keeps a separate wallet for each one, so an address
-# derived on regtest belongs to a wallet testnet4 never opens. Worse, regtest and
-# testnet share base58 prefixes, so a stale regtest address is accepted rather
-# than rejected and the rewards pay to a key the running chain's wallet does not
-# hold. Nothing reports that. See issue #1.
-POOL_ADDRESS_FILE="$DATADIR/payout_address.${NODE_CHAIN}"
-LEGACY_ADDRESS_FILE="$DATADIR/payout_address"
-
-# One-time adoption of the pre-per-chain file. Chain switching did not exist when
-# it was written, so whatever chain is running now is the one it was made on.
-if [ ! -s "$POOL_ADDRESS_FILE" ] && [ -s "$LEGACY_ADDRESS_FILE" ] \
-        && [ "$NODE_CHAIN" != "unknown" ]; then
-    cp "$LEGACY_ADDRESS_FILE" "$POOL_ADDRESS_FILE"
-    echo "datum-blake2b: adopted the existing payout address for ${NODE_CHAIN}"
-fi
+# bech32, and named explicitly rather than left to the wallet's default: DATUM's
+# parser understands bech32 only for the bc and tb prefixes (datum_utils.c), so
+# naming the type is what guarantees an address it can actually pay to. This used
+# to choose legacy on regtest, where bcrt1 matched neither branch of that parser.
+POOL_ADDRESS_FILE="$DATADIR/payout_address"
 
 if [ -z "${POOL_ADDRESS:-}" ] && [ -s "$POOL_ADDRESS_FILE" ]; then
     POOL_ADDRESS="$(cat "$POOL_ADDRESS_FILE")"
 fi
 if [ -z "${POOL_ADDRESS:-}" ] && [ "${AUTO_PAYOUT_FROM_NODE:-0}" = "1" ] \
         && [ -n "$RPC_URL" ] && [ -n "${RPC_USER:-}" ]; then
-    echo "datum-blake2b: no payout address set for ${NODE_CHAIN}, asking the node"
-    # regtest cannot use bech32 here, because DATUM's parser does not know the
-    # bcrt prefix; every other chain can and should.
-    if [ "$NODE_CHAIN" = "regtest" ]; then
-        _addrtype=legacy
-    else
-        _addrtype=bech32
-    fi
-    echo "datum-blake2b: chain=${NODE_CHAIN}, asking for a $_addrtype address"
-
+    echo "datum-blake2b: no payout address set, asking the node for one"
     for _ in $(seq 1 30); do
         # Whichever of these two applies is the one that works; the other fails
         # harmlessly. Trying both avoids having to ask first.
         _rpc loadwallet   '["mining"]' >/dev/null
         _rpc createwallet '["mining"]' >/dev/null
-        _addr="$(_rpc getnewaddress "[\"\",\"$_addrtype\"]" \
+        _addr="$(_rpc getnewaddress '["","bech32"]' \
             | sed -n 's/.*"result":"\([^"]*\)".*/\1/p')"
         [ -n "$_addr" ] && break
         sleep 2
@@ -166,74 +112,24 @@ STRATUM_PORT="${STRATUM_PORT:-23334}"
 API_PORT="${API_PORT:-7152}"
 VARDIFF_MIN="${VARDIFF_MIN:-1024}"
 
-# The block at the BLAKE2b activation height must carry the headline somewhere in
-# its coinbase scriptSig or the node rejects it with bad-headline (FINDINGS F3).
-# DATUM does not inject coinbaseaux.blake2b_headline, and upstream closed the PR
-# that would have made it do so, saying headlines are to be set manually. So we
-# set it here, where the user never has to know about it.
-# The headline is consensus for exactly one block per chain, the one at the
-# activation height, and free text everywhere else. So the tag is the operator's
-# to choose, and is only forced when that one block is still ahead of this node.
+# The label this gateway puts in the coinbase of blocks it builds. Free text, and
+# entirely the operator's to choose: the Mining config action sets it, and DATUM's
+# own default applies when they have not.
 #
-# Ask the node where activation is and how far it has got. rc4 renamed this key
-# from `hardfork` to `blake2b`, so read either. If the node cannot be asked, or
-# says nothing useful, assume the block is still ahead and keep the headline:
-# guessing wrong in that direction costs a label, guessing wrong in the other
-# costs the activation block.
-_dep="$(_rpc getdeploymentinfo '[]' || true)"
-_act="$(printf '%s' "$_dep" | sed -n 's/.*"\(blake2b\|hardfork\)":{[^}]*"height":\([0-9]*\).*/\2/p' | head -1)"
-_blocks="$(_rpc getblockchaininfo '[]' \
-    | sed -n 's/.*"blocks":\([0-9]*\).*/\1/p' | head -1)"
-if [ -n "${_act:-}" ] && [ -n "${_blocks:-}" ] && [ "$_blocks" -ge "$_act" ]; then
-    HEADLINE_STILL_NEEDED=0
-else
-    HEADLINE_STILL_NEEDED=1
-fi
-
-COINBASE_TAG="${COINBASE_TAG:-}"
-if [ -z "$COINBASE_TAG" ]; then
-    # Nothing chosen. Keep the old behaviour: the headline, or DATUM's own label
-    # on a chain that has no headline to carry.
-    COINBASE_TAG="${BLAKE2B_HEADLINE:-BLAKE2b Gateway}"
-elif [ "$HEADLINE_STILL_NEEDED" = "1" ] && [ -n "${BLAKE2B_HEADLINE:-}" ] \
-        && ! printf '%s' "$COINBASE_TAG" | grep -qF -- "$BLAKE2B_HEADLINE"; then
-    # A tag was chosen, but this node has not yet passed the activation height,
-    # so the block it is about to build might be the one that must carry the
-    # headline. Carry both rather than silently dropping either. DATUM allows 60
-    # bytes in this tag, so refuse rather than truncate: a truncated headline is
-    # a rejected block that looks like bad luck.
-    _combined="${COINBASE_TAG} ${BLAKE2B_HEADLINE}"
-    if [ ${#_combined} -gt 60 ]; then
-        echo "FATAL: this node has not reached the BLAKE2b activation height" >&2
-        echo "       (${_blocks:-unknown} of ${_act:-unknown}), so the block it builds" >&2
-        echo "       there must carry the headline '${BLAKE2B_HEADLINE}' in its" >&2
-        echo "       coinbase. Your tag plus that headline is ${#_combined} bytes and the" >&2
-        echo "       limit is 60. Shorten the Primary Coinbase Tag, or leave it" >&2
-        echo "       blank to use the headline alone." >&2
-        exit 1
-    fi
-    echo "datum-blake2b: activation block still ahead (${_blocks:-?} of ${_act:-?});"
-    echo "               appending the headline to the coinbase tag so that block"
-    echo "               is valid. It becomes free text once the chain passes it."
-    COINBASE_TAG="$_combined"
-fi
-if [ -n "${BLAKE2B_HEADLINE:-}" ] && [ ${#BLAKE2B_HEADLINE} -gt 80 ]; then
-    echo "FATAL: BLAKE2B_HEADLINE is ${#BLAKE2B_HEADLINE} bytes; the coinbase tag" >&2
-    echo "       budget is 86 bytes total and the headline would be truncated," >&2
-    echo "       which silently breaks the activation block." >&2
-    exit 1
-fi
-
-# One small JSON file per block the gateway submits, named by its hash. That is
-# how a compatibility report can say whether blocks were accepted rather than only
-# whether shares were: an accepted share is not a block, and the h1 version-bit bug
-# was precisely the case where shares looked healthy and every block was rejected.
+# There used to be a great deal more here. The block at the BLAKE2b activation
+# height must carry the chain's headline somewhere in its coinbase scriptSig or
+# the node rejects it with bad-headline, DATUM does not inject
+# `coinbaseaux.blake2b_headline`, and upstream closed the PR that would have made
+# it do so. So this file asked the node where activation was and how far it had
+# got, and while that block was still ahead it appended the headline to whatever
+# tag the operator had chosen, refusing to start if the two together exceeded
+# DATUM's 60-byte budget rather than truncating and silently losing a block.
 #
-# Cleared on start, for the same reason the capture log is truncated on start: a
-# report describes one session, and two miners tested in sequence must not blend.
-SUBMITTED_DIR="$DATADIR/submitted"
-rm -rf "$SUBMITTED_DIR"
-mkdir -p "$SUBMITTED_DIR"
+# All of it was for exactly one block per chain. On mainnet that block is 961640,
+# mined on 2026-08-30, and a gateway only ever builds on the tip. A node syncing
+# past 961640 downloads it; it does not mine it. So the case this handled cannot
+# arise on the only chain this package now serves.
+COINBASE_TAG="${COINBASE_TAG:-BLAKE2b Gateway}"
 
 # The dashboard's admin pages are gated on this. Blank is DATUM's own way of
 # disabling them, so an empty value here is a real setting rather than a missing
@@ -242,10 +138,21 @@ mkdir -p "$SUBMITTED_DIR"
 # looks like a crash rather than a typo.
 ADMIN_PASSWORD_JSON=$(printf '%s' "${ADMIN_PASSWORD:-}" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
-# modify_conf stays false on purpose. This file is regenerated from the StartOS
-# settings on every start, so anything the dashboard wrote into it would be
-# silently discarded on the next restart. Letting the UI edit a file that is
-# about to be overwritten is worse than not offering it.
+# modify_conf stays false on purpose, and this is the one place this package
+# deliberately differs by platform.
+#
+# This file is regenerated from the environment on every start, so anything the
+# dashboard wrote into it would be silently discarded on the next restart.
+# Letting the UI edit a file that is about to be overwritten is worse than not
+# offering it. Both upstream StartOS packages, OCEAN's and Retropex's, leave it
+# false for the same reason: there, the settings live in the platform's own forms
+# and the config file is an output.
+#
+# The official Umbrel app sets it true, because it has no settings forms and the
+# dashboard is the only place to change anything. Our Umbrel app matches it by
+# not using this script at all: it runs datum_gateway directly against a config
+# file its pre-start hook patches, which is exactly what the official app does.
+# See the Umbrel app's docker-compose.yml.
 
 cat > "$CONF" <<JSON
 {
@@ -265,8 +172,7 @@ cat > "$CONF" <<JSON
 		"pool_address": "${POOL_ADDRESS}",
 		"coinbase_tag_primary": "${COINBASE_TAG}",
 		"coinbase_tag_secondary": "",
-		"pow_algorithm": "${POW_ALGORITHM:-auto}",
-		"save_submitblocks_dir": "${SUBMITTED_DIR}"
+		"pow_algorithm": "${POW_ALGORITHM:-auto}"
 	},
 	"api": {
 		"admin_password": "${ADMIN_PASSWORD_JSON}",
@@ -288,9 +194,9 @@ JSON
 # Merge the operator's settings over the config generated above.
 #
 # DATUM_SETTINGS is a JSON object shaped like datum.json, holding only what the
-# user has actually set. StartOS fills it from the config actions; on Umbrel and
-# plain Docker it is absent and this is a no-op, which is why the settings live
-# in one variable rather than forty.
+# user has actually set. StartOS fills it from the config actions; on plain
+# Docker it is absent and this is a no-op, which is why the settings live in one
+# variable rather than forty. The Umbrel app does not run this script at all.
 #
 # Merged rather than substituted: the generated config carries the things this
 # package owns (ports, credentials, the submit directory, the coinbase tag that
@@ -310,14 +216,21 @@ except json.JSONDecodeError as e:
     sys.exit(f"DATUM_SETTINGS is not valid JSON: {e}")
 
 # Keys this package owns. A user cannot reach them through the config actions,
-# but the check is here rather than only there: this file is also the Umbrel and
-# plain-Docker path, and an operator setting DATUM_SETTINGS by hand should not be
-# able to unwire the package without being told.
+# but the check is here rather than only there: this file is also the plain-Docker
+# path, and an operator setting DATUM_SETTINGS by hand should not be able to
+# unwire the package without being told.
+#
+# `mining.coinbase_tag_primary` was in this list and should not have been, which
+# made the Mining action's Primary Coinbase Tag a form field that did nothing.
+# Nothing passes COINBASE_TAG in from StartOS, so the value went into
+# DATUM_SETTINGS, was matched here, and was dropped with a note on stderr that
+# nobody reads. It is a label on your own blocks, not something this package
+# needs to own. Removed along with `save_submitblocks_dir`, whose directory only
+# ever existed to feed the compatibility report.
 RESERVED = {
     "bitcoind": {"rpcuser", "rpcpassword", "rpcurl", "rpccookiefile"},
     "stratum": {"listen_port", "listen_addr"},
-    "mining": {"pool_address", "coinbase_tag_primary", "pow_algorithm",
-               "save_submitblocks_dir"},
+    "mining": {"pool_address", "pow_algorithm"},
     "api": {"listen_port", "listen_addr", "admin_password", "modify_conf"},
     "logger": {"log_to_console", "log_to_stderr"},
 }
@@ -374,16 +287,12 @@ for i in $(seq 1 "${RPC_WAIT_SECONDS:-120}"); do
     sleep 1
 done
 
-# Same watcher as the node, same reasoning: a settings change stops the service so
-# the restart policy brings it back reading the new file, without anything here
-# holding a Docker socket.
-
 # Not `exec`. A process running as PID 1 does not get the default action for a
 # signal it has no handler for, so the kernel discards it. bitcoind installs a
-# SIGTERM handler and would have been fine; datum_gateway does not, and a settings
-# change printed "restarting to apply" while the service carried on running. So
-# the shell stays PID 1, the service is its child, and signalling the child works
-# the way signalling anything else works.
+# SIGTERM handler and would have been fine; datum_gateway does not, and a stop
+# request went unanswered until the ten-second grace period ran out and it was
+# killed. So the shell stays PID 1, the service is its child, and signalling the
+# child works the way signalling anything else works.
 datum_gateway -c "$CONF" "$@" &
 APP_PID=$!
 
@@ -391,27 +300,14 @@ APP_PID=$!
 # normal shutdown into a ten-second wait and a kill.
 trap 'kill -TERM "$APP_PID" 2>/dev/null || true' TERM INT
 
-# Started unconditionally, and it hashes "absent" as a state of its own. Guarding
-# on the file existing meant a settings file created *after* boot was never
-# noticed, which is exactly what happens the first time somebody uses the page:
-# there is nothing to watch until they press save, and by then the watcher would
-# never have been started.
-(
-    _hash() { [ -s "$SETTINGS" ] && sha256sum "$SETTINGS" | cut -d' ' -f1 || echo none; }
-    _seen="$(_hash)"
-    while sleep 5; do
-        _now="$(_hash)"
-        if [ "$_now" != "$_seen" ]; then
-            echo "datum-blake2b: settings changed, restarting to apply"
-            kill -TERM "$APP_PID" 2>/dev/null || true
-            exit 0
-        fi
-    done
-) &
-
-# Exits when the service does, whether that is a crash, a stop, or the watcher
-# above deciding the settings changed. Either way the restart policy decides what
-# happens next.
+# There is no settings watcher any more. It existed so that the page this image
+# used to serve could write a shared settings.json holding the chain and the
+# payout address, which this container watched and restarted on. The chain is not
+# a setting, and on both platforms this image runs on the payout address has a
+# real settings form: a StartOS action, or the gateway's own dashboard on Umbrel.
+#
+# Exits when the service does, whether that is a crash or a stop. Either way the
+# restart policy decides what happens next.
 #
 # The loop is the point, and one `wait` is not enough. A trapped signal makes
 # `wait` return immediately with a status above 128, *without* reaping the child:

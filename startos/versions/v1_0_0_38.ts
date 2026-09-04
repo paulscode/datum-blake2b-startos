@@ -1,5 +1,4 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
-import { storeJson } from '../fileModels/store.json'
 
 const notes =
   'Fixes Set Payout Address, which failed on mainnet with a message telling you ' +
@@ -26,27 +25,18 @@ export const v1_0_0_38 = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Re-file a payout address stored under the old spelling of mainnet.
+    // A no-op since 1.0.0:43.
     //
-    // Addresses are keyed by chain, and this version renames that key from `main` to `mainnet` so
-    // it matches what the node package calls the chain. The mismatch is the bug being fixed, but
-    // anyone whose address was filed by the :36 migration has it under `main` already, and every
-    // reader now looks for `mainnet`. Left alone their address would silently read as unset: the
-    // gateway would refuse to start and the critical task would ask them to set it again.
+    // This used to re-file a payout address stored under the old spelling of
+    // mainnet. :36 filed it as `main`, :38 renamed the key to `mainnet` to match
+    // what the node package called the chain, and left alone an address under
+    // the old spelling would have read as unset: the gateway would refuse to
+    // start and the critical task would ask for it again.
     //
-    // Only moved when there is nothing already under the new key, so an address set deliberately
-    // since is never overwritten by an older one.
-    up: async ({ effects }) => {
-      const store = await storeJson.read().once()
-      const byChain = store?.poolAddresses ?? {}
-      const legacy = (byChain as Record<string, string>)['main']
-      if (!legacy || byChain['mainnet']) return
-
-      const { main: _dropped, ...rest } = byChain as Record<string, string>
-      await storeJson.merge(effects, {
-        poolAddresses: { ...rest, mainnet: legacy },
-      })
-    },
+    // Addresses are not keyed by chain any more. :43 collapsed the map back to a
+    // single `poolAddress`, and its migration reads both spellings along with
+    // the pre-:36 single field, so there is nothing left for this to do.
+    up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },
 })

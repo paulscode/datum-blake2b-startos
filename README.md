@@ -1,26 +1,22 @@
 # datum-blake2b
 
 DATUM Gateway serving Sia-style BLAKE2b work, so an existing Sia-compatible ASIC can
-mine the experimental BLAKE2b Bitcoin Knots chain. Packaged for StartOS 0.4.0.x.
+mine the BLAKE2b chain. Packaged for StartOS 0.4.0.x.
 
-**Follows whichever chain the node is on** (regtest or mainnet), and **solo mining
+**One chain: BLAKE2b on mainnet**, following the node package, and **solo mining
 only**: pooled BLAKE2b is not possible today because the pool server is
 closed-source and SHA256d-only.
 
-The chain is not a setting here. It is read from the node's own generated
-`bitcoin.conf` through the read-only mount this package already has, because
-bitcoind keeps each chain's data, including its RPC cookie, in a subdirectory
-named for that chain. Reading it rather than duplicating it means the two cannot
-drift; the node regenerates that file on every start and the reactive read
-restarts the gateway when it changes. This used to be hardcoded to `regtest`,
-which broke silently the moment the node was switched to testnet4: the cookie was
-never found and the gateway ran with no RPC credentials at all.
+The chain used to be read from the node's own generated `bitcoin.conf` through the
+read-only mount this package has, because bitcoind kept each chain's data,
+including its RPC cookie, in a subdirectory named for that chain, and the node
+could be on any of three. That is gone as of 1.0.0:43, with the node package's
+chain selector: the cookie is at `/knots/.cookie` and nowhere else.
 
 Pooled mining is worth restating because it comes up: no DATUM pool can serve this
 chain, and that is not a matter of anyone adding an endpoint. A pool validates
 shares against the chain's proof of work, so a BLAKE2b share is unintelligible to
-a SHA256d pool. GridPool's `datum.test.gridpool.net:3009` is ordinary testnet4 and
-cannot help.
+a SHA256d pool.
 
 ## Install
 
@@ -61,14 +57,17 @@ intended path rather than a workaround. Confirmed by reading `datum_conf.c` and
 `datum_api.c`: the usual hazard with credentials in config files is an app
 expecting a salted hash, and this one does not.
 
-`modify_conf` stays `false`. The config is regenerated from the StartOS settings
-on every start, so anything the dashboard wrote into it would be discarded on the
-next restart, and offering an edit box over a file about to be overwritten is
-worse than not offering one.
+`modify_conf` stays `false` **on StartOS**. The config is regenerated from
+`store.json` on every start, so anything the dashboard wrote into it would be
+discarded on the next restart, and offering an edit box over a file about to be
+overwritten is worse than not offering one. Both upstream StartOS packages,
+OCEAN's and Retropex's, do the same. The Umbrel app sets it true, because there
+the dashboard is the only settings form and the config file is the source of
+truth rather than an output; see below.
 
-Verified with a real login against the live testnet4 chain: no credentials 401,
-correct digest 200 with the miner table, wrong password 401, and a connected CPU
-miner appearing in `/clients` with its worker name, vardiff and share counts.
+Verified with a real login: no credentials 401, correct digest 200 with the miner
+table, wrong password 401, and a connected CPU miner appearing in `/clients` with
+its worker name, vardiff and share counts.
 
 Maintained by Paul Lamb (<https://github.com/paulscode>). Not affiliated with Start9
 or OCEAN.
@@ -79,28 +78,42 @@ The settings, their groupings and their names follow
 [`Start9Labs/datum-gateway-startos`](https://github.com/Start9Labs/datum-gateway-startos)
 (MIT), so a user who knows that package finds the same things in the same places.
 Six config actions under a **Config** group: Bitcoind, Stratum, Mining, API,
-Logger, DATUM Pool. Plus the same two service-page figures, **Miners connected**
-and **Estimated hashrate**, scraped from the gateway's own status page.
+Logger, DATUM Pool. The same health-check names: **Web Interface**, **Stratum
+Interface**, **Number of Stratum Clients Connected**, **Estimated Hashrate**, the
+last two scraped from the gateway's own status page. The same interface names,
+**Web UI** and **Stratum**.
 
-Deliberate differences, all of them because this package already owns the
-setting or because the setting cannot work here:
+As of 1.0.0:43 the action list is exactly the official package's. The one thing
+here with no counterpart there, an opt-in compatibility-capture port and the
+report built from it, is gone: it existed to find out which Sia ASICs could speak
+to this gateway, back when nobody knew, and five models across three manufacturers
+are now known to work.
+
+Deliberate differences that remain, all of them because this package already owns
+the setting or because the setting cannot work here:
 
 | Official has | Here | Why |
 |---|---|---|
 | `pool_address` in the Mining form | its own **Set Payout Address** action | raised as a critical task on install, so mining cannot start with rewards going nowhere. One editor, not two |
-| `coinbase_tag_primary` in the Mining form | read from the node's `blake2b_headline` | the activation block is rejected unless its coinbase carries that exact string, and DATUM does not inject `coinbaseaux.blake2b_headline`. Editing it would be editing a consensus value unmarked |
 | `admin_password` via **Reset Password** | **Dashboard Password**, generated on install | same separation, but generated rather than prompted: unlike the payout address there is no answer only the user can give |
 | listen ports, RPC credentials, `modify_conf` | not offered | this package's own wiring. A user who changed them would break the service with no way to tell that is what happened |
-| a typed model of `datum_gateway_config.json` | settings in `store.json`, merged by `entrypoint.sh` | the image also has to run on Umbrel and plain Docker, which have no actions. One `DATUM_SETTINGS` variable carries the whole set; absent, DATUM's defaults apply |
+| a typed model of `datum_gateway_config.json` | settings in `store.json`, merged by `entrypoint.sh` | the image also has to run on plain Docker, which has no actions. One `DATUM_SETTINGS` variable carries the whole set; absent, DATUM's defaults apply |
+
+`coinbase_tag_primary` was on that list until 1.0.0:43 and should not have been.
+It was reserved because the coinbase had to carry the fork's activation headline,
+which is consensus for exactly one block and which DATUM does not inject itself.
+But nothing passed the user's value through, so the Mining form's Primary Coinbase
+Tag saved a value that was then silently dropped on the way to the gateway. The
+block it was protecting, 961640, was mined on 30 August 2026 and a gateway only
+builds on the tip, so the reservation is gone and the field works.
 
 The merge refuses to write the settings above even if something hands them in,
 and refuses unknown groups, because `entrypoint.sh` is also the hand-run path.
 Verified: `admin_password`, `listen_port` and `pool_address` passed in
 `DATUM_SETTINGS` were all rejected while the package's real values survived.
 
-Extra here, with no counterpart upstream: the opt-in compatibility-capture port
-and its report, `pow_algorithm`, `save_submitblocks_dir`, and following the
-node's chain.
+Extra here, with no counterpart upstream: `pow_algorithm`, and the `d=`/`fd=`
+Stratum password that lets a client ask for a starting share difficulty.
 
 ## How this differs from the official `datum` package
 
@@ -146,108 +159,76 @@ height must carry it in its coinbase or the node rejects it `bad-headline`.
 When the node is not resolvable, no `rpcurl` is written at all rather than a dead
 placeholder address, so the failure is visible instead of masked.
 
-## The image also runs on Umbrel
+## The image also runs on Umbrel and plain Docker
 
 The same image backs the Umbrel app in
 [paulscode/umbrel-store](https://github.com/paulscode/umbrel-store)
-(`paulscode-datum-blake2b`). Nothing about the gateway differs; what differs is
-that Umbrel has no equivalent of a StartOS action, so two things the service
-definition does here have to be done by the entrypoint there. Both are opt-in and
-inert unless the environment asks for them, so the StartOS path is unchanged:
+(`paulscode-datum-blake2b`) and the compose file in [`docker/`](docker/).
+
+**Umbrel does not use `entrypoint.sh` at all.** It runs `datum_gateway` directly
+against a persistent `datum_gateway_config.json`, patched by a `hooks/pre-start`
+script, which is exactly what the official Umbrel Datum app does. That is what
+lets `api.modify_conf` be true there: the dashboard's own Config page is the only
+settings form Umbrel has, so the config file has to be the source of truth rather
+than an output. On StartOS the file is regenerated from `store.json` on every
+start, so `modify_conf` stays false, which is what both upstream StartOS packages
+also do.
+
+Plain Docker does use this script, and needs two things the StartOS service
+definition does for itself. Both are opt-in and inert unless the environment asks
+for them:
 
 | Variable | Effect |
 |---|---|
-| `COOKIE_PATH` | Read the node's RPC cookie from this path when `RPC_USER` is unset, waiting up to two minutes for it to appear. On StartOS the service definition reads the cookie and passes the halves in as `RPC_USER`/`RPC_PASSWORD`, so this stays unset. |
-| `AUTO_PAYOUT_FROM_NODE=1` | When no payout address is set, ask the node for one (`getnewaddress "" legacy`) and persist it to `/data/payout_address`. On StartOS the **Set Payout Address** action and its critical task cover this, so it stays unset. |
+| `COOKIE_PATH` | Read the node's RPC cookie from this path when `RPC_USER` is unset, waiting up to two minutes for it to appear, and proving it with a `getblockchaininfo` call before keeping it. On StartOS the service definition reads the cookie and passes the halves in as `RPC_USER`/`RPC_PASSWORD`, so this stays unset. |
+| `AUTO_PAYOUT_FROM_NODE=1` | When no payout address is set, ask the node for one (`getnewaddress "" bech32`) and persist it to `/data/payout_address`. On StartOS the **Set Payout Address** action and its critical task cover this, so it stays unset. |
 
-The Umbrel `report` container also gets `RPC_URL` and `COOKIE_PATH` and a read-only
-mount of the node's datadir, so it can check block acceptance. On StartOS the
-action mounts the same dependency volume and passes the same two values.
+`bech32` is named explicitly rather than left to the wallet's default because the
+consumer is DATUM: its address parser understands bech32 only for the `bc` and
+`tb` prefixes
+([`datum_utils.c`](https://github.com/OCEAN-xyz/datum_gateway/blob/main/src/datum_utils.c)).
+This used to ask for a legacy address when the node was on regtest, where `bcrt1`
+matched neither branch of that parser and the gateway refused to start.
 
-**Blocks in the report.** `mining.save_submitblocks_dir` points at `/data/submitted`,
-so the gateway writes one small JSON file per submitted block, named by its hash.
-The entrypoint clears that directory on start, the same way the capture log is
-truncated, so a report covers one session. `report.py` reads the hashes and asks
-the node `getblockheader` for each, counting only those with `confirmations >= 1`
-as accepted.
+**Proving the cookie rather than trusting it** is worth keeping even now that
+there is one path to it. bitcoind rewrites the cookie on every start, so a file
+that exists may still be the previous run's, and the gateway restarts faster than
+the node does. Reading a stale one gives a service that looks perfectly healthy
+while every RPC call comes back 401 and no template ever arrives. That was
+observed on a chain switch, when each chain kept its own cookie directory and the
+old file was still sitting there.
 
-Only the node can answer that question, and it is a different question from
-accepted shares: shares are the gateway's opinion, a block in the chain is the
-node's. The `h1` version-bit bug lived exactly in that gap, with healthy share
-stats and every block rejected. When the node cannot be reached the report says
-"acceptance not checked" and why, rather than reporting zero.
+### What the settings page cost, and what replaced it
 
-`capture/report_server.py` is the third piece: a one-page web front end that runs
-`report.py` and shows the result in a copyable box. It is the Umbrel app's tile,
-and is not used on StartOS, where the **Create Compatibility Report** action does
-the same job with a real form. Both shell out to the same `report.py`, so the two
-platforms produce identical reports.
+Umbrel and plain Docker had no settings form, so this image used to serve one: a
+page with a chain dropdown and a payout address, writing a `/config/settings.json`
+that both containers watched and restarted on. It is gone. Umbrel now has the
+gateway's own dashboard, which is the form the official app uses, and the chain is
+not a setting any more.
 
-Legacy addresses are not an arbitrary choice in either place: DATUM's address
-parser understands the `bc` and `tb` bech32 prefixes only
-([`datum_utils.c`](https://github.com/OCEAN-xyz/datum_gateway/blob/main/src/datum_utils.c)),
-so a regtest `bcrt1` address is rejected downstream.
-
-## Chain selection without a settings form
-
-StartOS has actions. Umbrel and plain Docker have nothing, so the page this image
-already serves gained a **Network** card: a chain dropdown and a payout address,
-and nothing else. Headline and peers are derived from the chain rather than
-offered, because they are consensus and curation, not preferences.
-
-The mechanism is a settings file both services read and watch:
-
-```
-/config/settings.json   {"chain": "...", "payout_address_<chain>": "..."}
-```
-
-The report container is the only writer, and writes via a temporary file and
-rename, because the readers watch by hash and would restart for a half-written
-one. `/config` is created in both Dockerfiles owned by the runtime user, which is
-what makes a fresh named volume writable without anything running as root.
-
-Three things this cost, all found by running it rather than reading it:
+Two things it taught are worth keeping, because both are still in this file:
 
 **A watcher guarded on the file existing never starts.** The first time anyone
-uses the page there is no settings file, so a watcher that only runs when one is
-present is never running when the file appears. It now treats absent as a state
-and watches unconditionally.
+used the page there was no settings file, so a watcher that only ran when one was
+present was never running when the file appeared. Watching unconditionally, with
+absent as a state of its own, is the fix.
 
 **PID 1 discards signals it has no handler for.** With `exec`, the service is
 PID 1, and `kill -TERM 1` did nothing to `datum_gateway`: it logged "restarting to
 apply" and carried on. bitcoind installs a handler and did restart, which made the
-bug look like a gateway problem rather than a signal one. The shell now stays
-PID 1, runs the service as a child, forwards `TERM` and `INT`, and waits.
-
-**Finding a cookie is not the same as having credentials.** Each chain keeps its
-own directory, so after a switch the previous chain's cookie is still on disk. The
-gateway restarts faster than the node and read the stale one, then every call came
-back 401 while the service looked healthy and simply never got a template. It now
-tries each candidate against `getblockchaininfo` and takes the first that answers,
-which also yields the chain, so what authenticated and what names the payout cache
-cannot disagree.
-
-Verified end to end on a live stack: regtest to testnet4 and back from the page,
-both services restarting themselves, per-chain addresses derived (`mvbAuPxS…` and
-`tb1q7jq3…`) and both retained, zero 401s after the switch, mining working
-afterwards, and `bcrt1`, mainnet and unknown-chain inputs all rejected without
-touching the stored settings.
-
-`bcrt1` is rejected on purpose despite being a valid regtest address: DATUM's
-parser only understands the `bc` and `tb` bech32 prefixes, so accepting one would
-crash-loop the gateway with "Could not generate output script for pool addr".
+bug look like a gateway problem rather than a signal one. The shell stays PID 1,
+runs the service as a child, forwards `TERM` and `INT`, and waits, and that is
+still how both entrypoints end.
 
 ## Plain Docker
 
 `docker/` carries a compose file and instructions for running the pair on a Linux
-box with neither StartOS nor Umbrel, using the published images. It follows the
-Umbrel wiring rather than the StartOS one, because that is the variant that needs
-no prompting: the payout address comes from the node and the report is a page.
+box with neither StartOS nor Umbrel, using the published images. The payout
+address comes from the node, so there is nothing to configure before starting.
 
-Two things differ from the Umbrel app. Host ports are overridable, since nothing
-assigns them and a clash is a failed start rather than a warning. And `HOST_IP`
-has to be passed on the command line, because there is no `exports.sh` to work it
-out on the host.
+One thing differs from both packages: host ports are overridable, since nothing
+assigns them and a clash is a failed start rather than a warning. `start.sh` picks
+free ones and writes them to `.env`.
 
 ## Configuration
 
@@ -298,13 +279,30 @@ v2. No firmware changes.
 
 Reports go to the Bitcoin section of the forum, <https://paulscode.com/c/bitcoin/8>,
 which needs a free account to post in. A GitHub issue on this repo works equally well
-for anyone who already has an account there, and has an issue form that prompts for
-each field.
+for anyone who already has an account there.
 
 The forum is listed first deliberately: the audience for these packages is people
 with a home server and a miner, not people who have used a bug tracker.
 
+There used to be machinery for this: an opt-in Stratum port that recorded a
+miner's conversation, a summariser that turned the recording into a shareable
+report, a web front end for it on platforms with no actions, and a GitHub issue
+form to paste the result into. All removed in 1.0.0:43. It did its job, which was
+to establish that a Sia ASIC could mine this chain at all; the evidence it
+produced is below and everything after it in this file. What is left is asking
+people to say which miner they used, which is a lower bar and gets answered more
+often.
+
+The code is in git history, and `mining.save_submitblocks_dir` is still a DATUM
+option, if a future device makes it worth reviving.
+
 ## Compatibility matrix
+
+Everything from here on is the evidence the compatibility report gathered while it
+existed, kept because it is what the claims about which hardware works rest on.
+It is written in the present tense and describes machinery removed in 1.0.0:43:
+the capture port 23337, `save_submitblocks_dir`, and the report itself. Read it as
+a record of what was measured, not as a description of the package today.
 
 | Device | Firmware | Connects | Jobs | Shares accepted | Blocks | Firmware changes |
 |---|---|---|---|---|---|---|

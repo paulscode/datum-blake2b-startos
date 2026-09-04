@@ -1,47 +1,40 @@
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
-import { expectedFor, isPayoutChain, isValidFor } from '../payoutAddress'
-import { readNodeChain } from '../nodeChain'
+import { EXPECTED, isValidAddress } from '../payoutAddress'
 import { sdk } from '../sdk'
 
 const { InputSpec, Value } = sdk
 
 /**
- * One spec, accepting either chain's address shapes.
+ * The gateway serves one chain, so the form can say what a good address looks
+ * like rather than hedging.
  *
- * Deliberately not chain-specific, though it was for one revision. Action
- * metadata is evaluated at init and cached, so a description reading "a testnet4
- * address" would keep saying that until the next install, including after the
- * user switched the node to regtest. A wording that is true on both chains beats
- * one that is more precise and sometimes wrong.
+ * It used to hedge, and had to. While this package could be pointed at either a
+ * private chain or mainnet, the valid prefixes differed, action metadata is
+ * evaluated at init and cached, and a description naming one chain's prefixes
+ * would keep saying that after the node was switched to the other.
  *
- * Mainnet is now one of the chains this accepts, and that reverses what this
- * check is for. It used to refuse `bc1...` outright, on the reasoning that these
- * coins were worthless and such an address had to be a mistake. BLAKE2b
- * activated on mainnet at block 961640, so the rewards are real and a mainnet
- * address is the expected value there. What matters now is that the address
- * matches the chain the node is actually on, which is why the handler reads that
- * chain rather than trusting a shape.
- *
- * `bcrt1...` is absent on purpose even though regtest produces it. DATUM's
- * parser handles bech32 only for the `bc` and `tb` prefixes, so it cannot
- * convert a regtest bech32 address, and accepting one here would take a value
- * the gateway then refuses. Get Payout Address hands out a base58 address on
- * regtest for exactly that reason.
+ * The pattern is on the field now for the same reason: it can be, because the
+ * rules no longer depend on anything the form cannot see. The handler still
+ * checks, because the pattern was observed NOT to be enforced on the
+ * `start-cli package action run` path.
  */
 const inputSpec = InputSpec.of({
   poolAddress: Value.text({
     name: i18n('Payout Address'),
     description: i18n(
-      'An address from your BLAKE2b node. Every block this gateway mines pays here.',
+      'An address from your BLAKE2b node, starting with bc1. Every block this gateway mines pays here.',
     ),
     required: true,
     default: null,
-    // No pattern here. The rules depend on which chain the node is on, and a
-    // pattern baked into the form cannot know it. The handler checks against
-    // that chain and names the prefixes that would work, which is a better
-    // error than a regex the form cannot explain.
-    patterns: [],
+    patterns: [
+      {
+        regex: '^(bc1[a-z0-9]{25,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,39})$',
+        description: i18n(
+          'A Bitcoin address starting with bc1, 1 or 3. The node’s Get Payout Address action gives you one.',
+        ),
+      },
+    ],
   }),
 })
 
@@ -66,61 +59,42 @@ export const setPayoutAddress = sdk.Action.withInput(
   // Prefill with whatever is set, so changing it later is an edit rather than a
   // retype from nothing.
   async ({ effects }) => {
-    const nodeChain = (await readNodeChain(effects)) ?? ''
-    const byChain = (await storeJson.read((s) => s.poolAddresses).once()) ?? {}
-    const current = byChain[nodeChain]
+    const current = await storeJson.read((s) => s.poolAddress).once()
     return current ? { poolAddress: current } : {}
   },
 
   async ({ effects, input }) => {
-    // Validate here as well as in `patterns`. The pattern gives fast feedback in
-    // the form, but it was observed NOT to be enforced on the
-    // `start-cli package action run` path: a mainnet address passed straight
-    // through and became the payout address. A handler throw is enforced on
-    // every path, and this is the one setting where accepting a wrong value
-    // silently sends someone's block rewards to an address they do not control.
+    // Validated here as well as in `patterns`. The pattern gives fast feedback
+    // in the form, but it was observed NOT to be enforced on the
+    // `start-cli package action run` path: an address that did not match passed
+    // straight through and became the payout address. A handler throw is
+    // enforced on every path, and this is the one setting where accepting a
+    // wrong value silently sends someone's block rewards to an address they do
+    // not control.
     const addr = input.poolAddress.trim()
 
-    // Which chain this address is for, read from the node's own config rather than from anything
-    // this service recorded earlier. Asking the node directly is what lets this be set before the
-    // first start, which is when it is first needed and, because the critical task blocks starting
-    // until an address exists, the only time it can be set at all on a fresh install.
-    const nodeChain = (await readNodeChain(effects)) ?? ''
-    if (!isPayoutChain(nodeChain)) {
+    // Test-network prefixes get their own message, because the reason they fail
+    // is not obvious: they are perfectly good addresses, on a chain this gateway
+    // does not serve, and DATUM would happily pay to them.
+    if (/^(bcrt1|tb1|[mn2])/.test(addr)) {
       throw new Error(
-        `Cannot tell which chain the node is on, so an address cannot be checked against it. ` +
-          `Check that the BLAKE2b node is installed and has been started at least once, so it has ` +
-          `written its configuration. Setting an address for the wrong chain is how block rewards ` +
-          `end up in a wallet you do not have.`,
+        `${addr} is a test-network address, and this gateway mines the BLAKE2b ` +
+          `chain on mainnet. Paying to it would build a valid mainnet output for ` +
+          `a key from a test wallet, which nothing downstream would object to. ` +
+          `Use ${EXPECTED}; the node's Get Payout Address action gives you one.`,
       )
     }
 
-    // bcrt1 gets its own message, because the reason it fails is not obvious.
-    if (/^bcrt1/.test(addr)) {
+    if (!isValidAddress(addr)) {
       throw new Error(
-        `${addr} is a bech32 regtest address, which this gateway cannot pay to: ` +
-          `its address parser only understands the bc and tb prefixes. Use a ` +
-          `legacy address starting with m, n or 2. The node's Get Payout Address ` +
-          `action gives you one.`,
+        `${addr} is not an address this gateway can pay to. Use ${EXPECTED}. ` +
+          `DATUM's address parser handles bech32 only for the bc and tb ` +
+          `prefixes, falling back to base58, so anything else is refused at ` +
+          `startup rather than at the block it would have paid.`,
       )
     }
 
-    if (!isValidFor(nodeChain, addr)) {
-      throw new Error(
-        `${addr} is not usable on ${nodeChain}. Use ${expectedFor(nodeChain)}. An ` +
-          `address from another chain belongs to a wallet this node never opens, ` +
-          `and DATUM will not stop you: its parser is explicitly agnostic to which ` +
-          `network an address came from, so it would build a valid payment to a ` +
-          `key you may not hold.`,
-      )
-    }
-
-    // Keyed by chain. The single field this replaced survived a chain switch and
-    // went on paying to the previous chain's wallet.
-    const existing = (await storeJson.read((s) => s.poolAddresses).once()) ?? {}
-    await storeJson.merge(effects, {
-      poolAddresses: { ...existing, [nodeChain]: addr },
-    })
+    await storeJson.merge(effects, { poolAddress: addr })
 
     return {
       version: '1' as const,

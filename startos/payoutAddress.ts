@@ -1,85 +1,36 @@
-import { type Chain } from 'knots-blake2b-startos/startos/utils'
-
 /**
- * What counts as a payout address, per chain.
+ * What counts as a payout address.
  *
  * One module because three callers need to agree and previously did not: the
- * action's input pattern, the action's own check, and now the migration. When the
+ * action's input pattern, the action's own check, and the migration. When the
  * first two disagreed for one revision, the form accepted an address the handler
  * then rejected.
  *
  * The rules are DATUM's, not Bitcoin's, and they are narrower. `datum_utils.c`
- * decodes bech32 only for the `bc` and `tb` prefixes, so a regtest `bcrt1`
- * address cannot be converted and the gateway refuses to start. Regtest
- * therefore has to use a legacy address, which is why Get Payout Address asks
- * the node for a legacy one there.
+ * decodes bech32 only for the `bc` and `tb` prefixes, falling back to libblkmaker
+ * for base58. On mainnet, which is the only chain this gateway serves, `bc1`
+ * addresses go straight through.
+ *
+ * This used to be a table keyed by chain, with a regtest row accepting base58
+ * `m`, `n` and `2` because DATUM cannot decode `bcrt1` at all. The node package
+ * follows mainnet only as of its 1.0.0:30, so the table has one row and the
+ * chain argument is gone.
  */
 
 /**
- * Chains this gateway can be pointed at, named exactly as the node package names them.
+ * bech32 and bech32m under `bc`, plus legacy P2PKH and P2SH.
  *
- * Derived from that package's `Chain` rather than written out, because the two were written out
- * separately once and drifted: this file said `main` while the node package said `mainnet`, so
- * `isPayoutChain` rejected the very chain the node reported and Set Payout Address failed on
- * mainnet with a message telling the user to start the service, which could not have helped.
- * Deriving it makes the next divergence a compile error instead.
+ * Nothing test-shaped is accepted. That is a real check rather than tidiness:
+ * DATUM's parser is explicitly agnostic about which network an address came
+ * from, so a leftover `tb1` or `m...` address here produces a perfectly valid
+ * mainnet output paying a key from a wallet the operator may not hold, and
+ * nothing downstream would complain.
  */
-export type PayoutChain = Chain
+const PATTERN = /^(bc1[a-z0-9]{25,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,39})$/
 
-type Rule = {
-  /** Accepts an address usable for payouts on this chain. */
-  pattern: RegExp
-  /** Shown when the address does not match, naming what would work instead. */
-  expected: string
-}
+/** Shown when the address does not match, naming what would work instead. */
+export const EXPECTED = 'an address starting with bc1, 1 or 3'
 
-const RULES: Record<PayoutChain, Rule> = {
-  // Mainnet: bech32 and bech32m under `bc`, plus legacy P2PKH and P2SH. This is
-  // real money, so nothing test-shaped is accepted here.
-  mainnet: {
-    pattern: /^(bc1[a-z0-9]{25,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,39})$/,
-    expected: 'an address starting with bc1, 1 or 3',
-  },
-  // Regtest: legacy only, because DATUM cannot decode bcrt1 at all. Accepting one
-  // here would move the failure to a gateway that will not start.
-  regtest: {
-    pattern: /^[mn2][a-km-zA-HJ-NP-Z1-9]{25,39}$/,
-    expected: 'an address starting with m, n or 2',
-  },
-}
-
-export function isValidFor(chain: PayoutChain, address: string): boolean {
-  return RULES[chain].pattern.test(address.trim())
-}
-
-export function expectedFor(chain: PayoutChain): string {
-  return RULES[chain].expected
-}
-
-export function isPayoutChain(chain: string): chain is PayoutChain {
-  return chain in RULES
-}
-
-/**
- * The chain an address belongs to, judged by its own prefix.
- *
- * Only for the migration, which has an address from before addresses were keyed
- * by chain and no record of which chain it was set on. Everywhere else the chain
- * is known and should be used instead of guessed.
- *
- * `null` for anything that is not recognisably mainnet, which now means base58
- * `m`, `n` and `2`. Those were once ambiguous, shared between regtest and the
- * public test network, and that ambiguity was the reason for answering null.
- * With testnet4 gone they identify regtest on their own, so this could decide.
- * It still does not: an address carried over from before addresses were keyed by
- * chain has no record of the chain it was set on, and filing it automatically
- * would be inferring intent from a prefix. Leaving it unassigned means the
- * operator is asked once, which is cheap next to paying block rewards to a
- * wallet they may not have.
- */
-export function chainFromAddress(address: string): PayoutChain | null {
-  const addr = address.trim()
-  if (!addr) return null
-  if (RULES.mainnet.pattern.test(addr)) return 'mainnet'
-  return null
+export function isValidAddress(address: string): boolean {
+  return PATTERN.test(address.trim())
 }

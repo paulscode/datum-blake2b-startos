@@ -11,17 +11,13 @@
 export const stratumPort = 23336
 export const uiPort = 7153
 
-// Opt-in recording port. A miner pointed here has its conversation captured for
-// a compatibility report; the normal port records nothing. Kept separate rather
-// than making the main port switchable, so the mining path never grows an extra
-// hop or a mode that can be left switched on.
-export const capturePort = 23337
-export const captureLog = '/data/capture/wire.jsonl'
-
-// One JSON file per block the gateway submits, named by the block hash, cleared
-// on every start. It is the only record of what was submitted; whether any of it
-// was accepted is a question only the node can answer.
-export const submittedDir = '/data/submitted'
+// There was a third port here, 23337, an opt-in recording proxy that captured a
+// miner's Stratum conversation so it could be turned into a compatibility
+// report. It existed to find out which Sia ASICs could speak to this gateway,
+// back when the answer was unknown and the fork had no public chain. Enough
+// hardware is known to work now, and the report was the largest single thing
+// making this package look unlike the official Datum Gateway package, which is
+// what people install it expecting. Removed in 1.0.0:43.
 
 export const dataDir = '/data'
 

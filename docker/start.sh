@@ -47,8 +47,8 @@ port_taken() {
 }
 
 # Ports handed out earlier in this same run. Without this, two defaults that are
-# both taken can be pushed onto the same replacement: 7153 and 7152 both busy
-# gave PAGE_PORT=7154 and DASHBOARD_PORT=7154, and the second container to start
+# both taken can be pushed onto the same replacement: two busy defaults once
+# gave the same number twice, and the second container to start
 # failed on a port the first had just taken. Nothing is listening on a chosen
 # port yet, so the system check cannot see it.
 CHOSEN=""
@@ -70,16 +70,12 @@ if [ -f .env ]; then
 else
     echo "Looking for free ports..."
     HOST_IP="${HOST_IP:-$(detect_ip)}"
-    pick_port PAGE_PORT      "${PAGE_PORT:-7153}"
     pick_port STRATUM_PORT   "${STRATUM_PORT:-23336}"
-    pick_port CAPTURE_PORT   "${CAPTURE_PORT:-23337}"
     pick_port DASHBOARD_PORT "${DASHBOARD_PORT:-7152}"
     {
         echo "# Written by start.sh. Delete this file to have ports chosen again."
         echo "HOST_IP=$HOST_IP"
-        echo "PAGE_PORT=$PAGE_PORT"
         echo "STRATUM_PORT=$STRATUM_PORT"
-        echo "CAPTURE_PORT=$CAPTURE_PORT"
         echo "DASHBOARD_PORT=$DASHBOARD_PORT"
     } > .env
 fi
@@ -99,12 +95,14 @@ cat <<EOF
 
 Running.
 
-  Open this page:      http://${HOST_IP}:${PAGE_PORT}
   Point your miner at: stratum+tcp://${HOST_IP}:${STRATUM_PORT}
+  Mining dashboard:    http://${HOST_IP}:${DASHBOARD_PORT}
 
-The page has the mining dashboard and the compatibility report form.
 The worker name and password are not used; put anything readable as the worker.
 
-To stop it, keeping the test chain:   docker compose down
-To stop it and delete everything:     docker compose down -v
+The node syncs the BLAKE2b chain before the gateway can serve work, so the
+Stratum port stays shut for a while on a first run. That is expected.
+
+To stop it, keeping the chain and the wallet:  docker compose down
+To stop it and delete both:                    docker compose down -v
 EOF

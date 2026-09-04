@@ -5,13 +5,14 @@ import { datumConfig } from './config/datum'
 import { loggerConfig } from './config/logger'
 import { miningConfig } from './config/mining'
 import { stratumConfig } from './config/stratum'
-import { createCompatibilityReport } from './createCompatibilityReport'
 import { setDashboardPassword } from './setDashboardPassword'
 import { setPayoutAddress } from './setPayoutAddress'
 
 // Order matters: the two that a new install needs come first, then the config
-// group in the same order the official Datum Gateway package lists it, then
-// this package's own extra.
+// group in the same order the official Datum Gateway package lists it.
+//
+// This is now exactly that package's action list. Create Compatibility Report
+// used to follow, and it was the one thing here with no counterpart there.
 export const actions = sdk.Actions.of()
   .addAction(setPayoutAddress)
   .addAction(setDashboardPassword)
@@ -21,4 +22,3 @@ export const actions = sdk.Actions.of()
   .addAction(apiConfig)
   .addAction(loggerConfig)
   .addAction(datumConfig)
-  .addAction(createCompatibilityReport)

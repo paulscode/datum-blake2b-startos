@@ -1,130 +1,89 @@
-# Mine a private BLAKE2b test chain with a Sia-compatible ASIC, on plain Docker.
+# Mine the BLAKE2b chain with a Sia-compatible ASIC, on plain Docker.
 #
-# Same images as the StartOS and Umbrel packages, wired the way the Umbrel app
-# wires them: the gateway takes its payout address from the node by itself, and
-# the page on port 7153 shows the address to point a miner at.
+# Same images as the StartOS and Umbrel packages. The gateway takes its payout
+# address from the node by itself, so there is nothing to configure before
+# starting:
 #
-#   HOST_IP=$(ip -4 route get 1.1.1.1 | grep -oP 'src \K\S+') docker compose up -d
+#   docker compose up -d
 #
-# Chain and payout address are set on the page this serves, not here. They live in
-# a shared `config` volume that the node and gateway both read and watch: changing
-# them stops those two, and `restart: unless-stopped` brings them back on the new
-# settings. Nothing in here holds a Docker socket to do that.
+# THIS MINES A REAL CHAIN. Bitcoin's mainnet split on 30 August 2026, and from
+# block 961640 one of the two chains uses BLAKE2b for proof of work. A block you
+# find pays its whole subsidy to an address in the node's own wallet, so back
+# that wallet up. `docker compose down -v` would delete it along with everything
+# else; `down` without `-v` keeps the volumes.
 #
-# HOST_IP is the address a miner is told to connect to. It has to be passed in:
-# a container can only see its own address on the Docker network, and most ASIC
-# firmware cannot resolve a .local name, so guessing it wrong fails silently.
+# The node is pruned to 5 GB by default, which is enough to mine: a gateway needs
+# the tip, not history. Raise PRUNE, or set it to 0 for the whole chain.
 #
-# Every published port can be moved if something already has it, which on a
+# The published ports can be moved if something already has them, which on a
 # general-purpose machine is likely enough to be worth allowing for. Nothing
 # assigns ports for you here the way StartOS and Umbrel do, and a clash is a
 # failed start rather than a warning:
 #
-#   PAGE_PORT=8153 DASHBOARD_PORT=8152 docker compose up -d
+#   STRATUM_PORT=8336 DASHBOARD_PORT=8152 docker compose up -d
 #
-# Only the left-hand side moves. The ports inside the containers are fixed, and
-# the page reads the published ones from these same variables, so a miner is
-# always told the right number.
+# Only the left-hand side moves. The ports inside the containers are fixed.
+#
+# `start.sh` in this directory does the same thing while picking ports that are
+# actually free, and prints the address to give a miner.
 
 name: blake2b-mining
 
 services:
-  # Bitcoin Knots built from the BLAKE2b proof-of-work branch, on its own private
-  # regtest chain. No ports: RPC and P2P stay on the internal network. RPC
-  # authenticates with the cookie the node writes itself.
+  # Bitcoin Knots built from the BLAKE2b proof-of-work change, following the
+  # BLAKE2b chain on mainnet. No published ports: RPC stays on the internal
+  # network and authenticates with the cookie the node writes itself.
+  #
+  # 8333 is not published either, so this node makes outbound connections and
+  # accepts no inbound ones. That is enough to sync and to mine. Publish it if
+  # you want to serve peers.
   node:
-    image: paulscode/knots-blake2b:1.0.3
+    image: paulscode/knots-blake2b:1.0.9
     restart: unless-stopped
-    stop_grace_period: 1m
+    # Long, and it matters. bitcoind flushes its chainstate on shutdown, and a
+    # stop that does not wait for it throws away everything since the last
+    # flush. Measured during an initial sync: stopping at height 84900 came back
+    # at 327.
+    stop_grace_period: 5m
     environment:
-      CHAIN: regtest
-      # Consensus-critical. The activation block's coinbase must contain this
-      # string, and the gateway below must be given the same one.
-      BLAKE2B_HEADLINE: "BLAKE2b lab 2026-08-21"
-      # 1 means the first block mined is already BLAKE2b. A Sia ASIC cannot mine
-      # SHA256d at all, so anything higher leaves the miner connected and idle.
-      BLAKE2B_ACTIVATION_HEIGHT: "1"
       # Docker's default bridge range. Change this if your Docker networks use
       # something else, or the node will refuse the gateway's RPC calls.
       RPC_ALLOW_IP: "172.16.0.0/12"
-      PRUNE: "550"
+      PRUNE: "5000"
     volumes:
       - node-data:/data
-      - config:/config:ro
 
   # The gateway: turns the node's block templates into Stratum work a Sia-style
   # BLAKE2b ASIC can mine.
   gateway:
-    image: paulscode/datum-blake2b:1.0.6
+    image: paulscode/datum-blake2b:1.0.12
     restart: unless-stopped
     depends_on: [node]
     stop_grace_period: 30s
     environment:
       RPC_URL: http://node:18443
       # The node's own cookie, read off its data directory. No RPC password is
-      # generated, stored or shared by either side.
-      COOKIE_PATH: /node/regtest/.cookie
-      BLAKE2B_HEADLINE: "BLAKE2b lab 2026-08-21"
-      # Ask the node for a payout address on first start and keep it. Legacy,
-      # because the gateway's address parser rejects bcrt1 addresses.
+      # generated, stored or shared by either side. Mainnet keeps it at the root
+      # of the data directory.
+      COOKIE_PATH: /node/.cookie
+      # Ask the node for a payout address on first start and keep it. It is your
+      # node and your wallet, so this saves a step rather than inventing an
+      # address. Set POOL_ADDRESS instead to pay somewhere you already back up.
       AUTO_PAYOUT_FROM_NODE: "1"
       STRATUM_PORT: "23336"
       API_PORT: "7152"
     volumes:
       - gateway-data:/data
       - node-data:/node:ro
-      # Chain and payout address, read and watched. A change here stops the
-      # gateway so the restart policy brings it back on the new settings.
-      - config:/config:ro
     ports:
-      - "${STRATUM_PORT:-23336}:23336"       # Stratum, for the miner
-      - "${DASHBOARD_PORT:-7152}:7152"       # the gateway's own mining dashboard
-
-  # The opt-in compatibility-test port. A miner pointed here mines exactly as
-  # normal, with its conversation recorded so it can be turned into a report.
-  capture:
-    image: paulscode/datum-blake2b:1.0.6
-    restart: unless-stopped
-    depends_on: [gateway]
-    entrypoint: ["python3", "/usr/local/bin/stratumtap.py"]
-    command:
-      ["--listen", "0.0.0.0:23337",
-       "--upstream", "gateway:23336",
-       "--log", "/data/capture/wire.jsonl"]
-    volumes:
-      - gateway-data:/data
-    ports:
-      - "${CAPTURE_PORT:-23337}:23337"
-
-  # The page to open: the Stratum address, a link to the dashboard, and the
-  # compatibility-report form.
-  report:
-    image: paulscode/datum-blake2b:1.0.6
-    restart: unless-stopped
-    depends_on: [gateway]
-    entrypoint: ["python3", "/usr/local/bin/report_server.py"]
-    command:
-      ["--listen", "0.0.0.0:7154",
-       "--capture-log", "/data/capture/wire.jsonl",
-       "--stratum-port", "${STRATUM_PORT:-23336}",
-       "--capture-port", "${CAPTURE_PORT:-23337}",
-       "--dashboard-port", "${DASHBOARD_PORT:-7152}",
-       "--host-ip", "${HOST_IP:-}"]
-    environment:
-      # Only the node can say whether a block was accepted, and an accepted share
-      # is not a block. Read-only, and the only call made is getblockheader.
-      RPC_URL: http://node:18443
-      COOKIE_PATH: /node/regtest/.cookie
-    volumes:
-      - gateway-data:/data
-      # The only writer. The page saves here; node and gateway watch it.
-      - config:/config
-      - node-data:/node:ro
-    ports:
-      - "${PAGE_PORT:-7153}:7154"
+      # Stratum, for the miner. Point your ASIC at this machine's IP address on
+      # this port; most ASIC firmware cannot resolve a .local name.
+      - "${STRATUM_PORT:-23336}:23336"
+      # The gateway's own dashboard. Nothing in front of it, so treat it as
+      # visible to anything on your network. The admin pages are off unless you
+      # set ADMIN_PASSWORD above.
+      - "${DASHBOARD_PORT:-7152}:7152"
 
 volumes:
   node-data:
   gateway-data:
-  # Chain and payout address, written by the page, read by the node and gateway.
-  config:

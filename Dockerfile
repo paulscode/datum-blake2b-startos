@@ -51,30 +51,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /src/build/datum_gateway /usr/local/bin/datum_gateway
 COPY --from=build /src/PINNED_COMMIT /etc/datum-pinned-commit
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-# Compatibility capture: a recording proxy for the opt-in test port, the
-# summariser that turns a capture into a report, and a one-page web front end for
-# it used on platforms that have no equivalent of a StartOS action. Python is
-# here only for these; the gateway itself does not use it.
-COPY capture/stratumtap.py capture/report.py capture/report_server.py /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/stratumtap.py \
-        /usr/local/bin/report.py /usr/local/bin/report_server.py
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# A fingerprint of our own tooling, so a report identifies the build it came from.
-# The pinned gateway commit alone does not: two images can share it while differing
-# in everything we wrote, which is exactly what happened when a report arrived
-# carrying block figures alongside a commit from a build that had no block
-# reporting. Derived rather than passed in, so it cannot be forgotten at build time
-# and is right on every platform.
-RUN sha256sum /usr/local/bin/entrypoint.sh /usr/local/bin/report.py \
-        /usr/local/bin/stratumtap.py /usr/local/bin/report_server.py \
-    | sha256sum | cut -c1-12 > /etc/datum-tooling-id
+# Three Python scripts used to be installed here: a recording proxy for an opt-in
+# compatibility-test port, a summariser that turned a capture into a report, and a
+# one-page web front end for it. All removed in 1.0.0:43, along with the
+# `/etc/datum-tooling-id` fingerprint that existed so a report could identify the
+# build it came from.
+#
+# python3 stays, and the comment that used to say it was here only for those
+# scripts was wrong even then: entrypoint.sh uses it to merge DATUM_SETTINGS over
+# the generated config, one level deep with a reserved-key check, which is more
+# than this should be doing in shell.
 
 VOLUME /data
 EXPOSE 23334 7152
-# Create the settings mountpoint owned by the runtime user. A named volume
-# inherits the ownership of the image directory it covers, so doing this here
-# is what makes a fresh volume writable without anything running as root.
-RUN mkdir -p /config && chown datum:datum /config
 
 USER datum
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# The Umbrel app overrides both of these and runs datum_gateway directly against
+# a persistent config file, which is what the official Umbrel Datum app does. See
+# that app's docker-compose.yml.
