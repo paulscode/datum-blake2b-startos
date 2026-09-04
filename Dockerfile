@@ -35,7 +35,23 @@ RUN git init -q \
  && git checkout -q FETCH_HEAD \
  && git rev-parse HEAD > /src/PINNED_COMMIT
 
+# -DDATUM_API_FOR_UMBREL compiles in `/umbrel-api`, a small unauthenticated JSON
+# endpoint returning connected clients and estimated hashrate in the shape
+# umbrelOS wants for a home-screen widget. Upstream gates it behind that flag and
+# sets it in its own Umbrel CI build.
+#
+# Set unconditionally here, because one image serves both platforms and a
+# StartOS-only build with the flag missing is how the widget silently 404s. It
+# adds no exposure: those two figures are already on the status page, which needs
+# no password, and are what this package's own health checks scrape from it.
+#
+# Found by asking the running gateway rather than by reading the source. The
+# source at our pin has the route, so grepping for it says yes; the string is not
+# even in the binary, because gcc inlines a short strcmp against a constant, so
+# grepping the binary says no for the wrong reason. `curl /umbrel-api` on a
+# running container answered 404, which is the only test that settles it.
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_FLAGS=-DDATUM_API_FOR_UMBREL \
  && cmake --build build -j"$(nproc)" \
  && ./build/datum_gateway --test \
  && strip build/datum_gateway
