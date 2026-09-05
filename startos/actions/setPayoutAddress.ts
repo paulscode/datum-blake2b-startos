@@ -31,7 +31,7 @@ const inputSpec = InputSpec.of({
       {
         regex: '^(bc1[a-z0-9]{25,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,39})$',
         description: i18n(
-          'A Bitcoin address starting with bc1, 1 or 3. The node’s Get Payout Address action gives you one.',
+          'A Bitcoin address starting with bc1, 1 or 3, from a wallet whose keys you hold. A block found solo pays its whole subsidy here.',
         ),
       },
     ],
@@ -81,7 +81,7 @@ export const setPayoutAddress = sdk.Action.withInput(
         `${addr} is a test-network address, and this gateway mines the BLAKE2b ` +
           `chain on mainnet. Paying to it would build a valid mainnet output for ` +
           `a key from a test wallet, which nothing downstream would object to. ` +
-          `Use ${EXPECTED}; the node's Get Payout Address action gives you one.`,
+          `Use ${EXPECTED}, from a wallet whose keys you hold.`,
       )
     }
 

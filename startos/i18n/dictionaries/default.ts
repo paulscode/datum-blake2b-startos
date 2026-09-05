@@ -121,6 +121,7 @@ const dict = {
   'Estimated Hashrate': 117,
   'Estimated hashrate': 118,
   'Could not read the hashrate': 119,
+  'A Bitcoin address starting with bc1, 1 or 3, from a wallet whose keys you hold. A block found solo pays its whole subsidy here.': 120,
 } as const
 
 /**
