@@ -1,17 +1,17 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
-const notes = `Removes the "Get Address" task this service raised against the node.
+const notes = `Corrects the DATUM Pool settings, which told you pooled mining was not possible on this chain.
 
-It showed in the Dependencies section as Recommended, telling you to fetch a payout address from the node's own wallet. That is a habit from when this pair served a private test chain, where the node's wallet was the only wallet involved and the coins were worthless.
+They carried a warning saying no pool served this chain, that every DATUM pool was SHA256d and could not check a BLAKE2b share, and that solo was the only mode that worked. That was true when it was written and it is not true now. Convoy serves this chain, at datum-beta1.mine.convoy.xyz on port 28915, and the warning was steering people away from a pool they could use.
 
-On mainnet it is advice that can cost real money. Mining solo pays a whole block subsidy to the single address you configure, so it should be an address from a wallet whose keys you hold and already back up, typically an external wallet such as Sparrow. The node's wallet lives on the server with no seed phrase in your hands.
+Nothing about how the service works has changed. The settings were always there and always applied; only what they said about themselves was wrong.
 
-The node's Get Address action is untouched and still there for anyone who wants it. This service simply no longer recommends it, and the payout form and instructions now point at a wallet you control instead.
+The Pool Public Key is the other thing worth knowing. Leave it empty. DATUM has a pool key built in and uses it whenever that field is unset, which is why a host and a port are all Convoy asks for. Only fill it in if a pool publishes a key of its own, and then it has to be exactly 128 hex characters, a signing key and an encryption key one after the other. Any other length stops the gateway from starting, and DATUM's own documentation is wrong about this: it says an empty value is auto-fetched, and no version of DATUM does that.
 
-An existing install has the old task cleared on its next start. StartOS does not remove tasks on its own, so dropping the code that created it is not enough to make it disappear.`
+Solo mining is still the default and still works. Leaving Pool Host empty is all that takes.`
 
 export const current = VersionInfo.of({
-  version: '1.0.0:44',
+  version: '1.0.0:45',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -20,9 +20,9 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. The task is cleared by `setDependencies` on every
-    // init rather than here, so an install that never crosses this exact edge
-    // is repaired too. The 1.0.0:43 store migration stays with :43.
+    // Nothing to migrate. This release changes the words on a form, not the
+    // shape of anything stored, and a pool already configured keeps working
+    // exactly as it did. The 1.0.0:43 store migration stays with :43.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },

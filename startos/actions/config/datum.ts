@@ -13,7 +13,7 @@ const inputSpec = InputSpec.of({
   pool_host: Value.text({
     name: i18n('Pool Host'),
     description: i18n(
-      'Hostname of a DATUM pool. Leave empty to mine solo, which is the only mode that works on this chain today.',
+      'Hostname of a DATUM pool. Convoy is the pool for this chain, at datum-beta1.mine.convoy.xyz on port 28915. Leave empty to mine solo.',
     ),
     required: false,
     default: null,
@@ -30,7 +30,9 @@ const inputSpec = InputSpec.of({
   }),
   pool_pubkey: Value.text({
     name: i18n('Pool Public Key'),
-    description: i18n('The pool’s public key, which authenticates it to you.'),
+    description: i18n(
+      'Leave this empty unless the pool publishes a key of its own. DATUM has one built in and uses it when this is unset, which is why a host and a port are usually all a pool asks for. A key given here must be 128 hex characters, being a signing key and an encryption key one after the other; any other length stops the gateway from starting.',
+    ),
     required: false,
     default: null,
   }),
@@ -57,7 +59,7 @@ const inputSpec = InputSpec.of({
       'Refuse to serve work when the pool is unreachable, instead of falling back to solo.',
     ),
     warning: i18n(
-      'On this chain there is no pool to fall back from, so turning this on stops mining entirely.',
+      'With no reachable pool, this stops mining rather than falling back to solo.',
     ),
     default: false,
   }),
@@ -74,18 +76,22 @@ const inputSpec = InputSpec.of({
 })
 
 /**
- * Pooled mining does not work on this chain, and that is not a gap this package
- * can close.
+ * Pooled mining works on this chain now, which it did not when this was written.
  *
  * A DATUM pool validates shares against the chain's proof of work, so a BLAKE2b
- * share is unintelligible to a SHA256d pool. Ocean's pool server is
- * closed-source and SHA256d-only, and GridPool's testnet4 endpoint is ordinary
- * testnet4. Neither can serve this chain.
+ * share is unintelligible to a SHA256d pool: Ocean's server is closed-source and
+ * SHA256d-only, and GridPool's testnet4 endpoint is ordinary testnet4. On that
+ * reasoning these settings shipped with a warning saying no pool served this
+ * chain and solo was the only mode that worked.
  *
- * The settings are offered anyway rather than hidden, because a user coming
- * from the official package will look for them, and because if a pool operator
- * ever runs the fork these are what would point at it. The warning says so
- * rather than letting someone discover it by mining into silence.
+ * Convoy serves it, so that warning was telling people the opposite of the
+ * truth and steering them away from a pool they could use. The text says what
+ * the settings are for and leaves the choice where it belongs.
+ *
+ * The pool's public key is the one that bites: datum_pubkey_to_struct requires
+ * exactly 128 hex characters, an ed25519 key and an x25519 key concatenated, and
+ * anything else is fatal at startup rather than a validation error. Hence the
+ * length in the description.
  */
 export const datumConfig = sdk.Action.withInput(
   'datum-config',
@@ -94,7 +100,7 @@ export const datumConfig = sdk.Action.withInput(
     name: i18n('DATUM Pool'),
     description: i18n('Settings for mining to a DATUM pool.'),
     warning: i18n(
-      'No pool serves this chain today. A pool checks shares against the chain’s proof of work, and every DATUM pool is SHA256d, so it cannot check a BLAKE2b share. These settings are here for if that changes; leaving them empty means solo mining, which does work.',
+      'Leave these empty to mine solo. To mine to a pool, fill them in with the details the pool publishes: a pool checks shares against the chain’s proof of work, so it has to be one that follows this chain rather than the one that kept SHA256d.',
     ),
     allowedStatuses: 'any',
     group: CONFIG_GROUP,
