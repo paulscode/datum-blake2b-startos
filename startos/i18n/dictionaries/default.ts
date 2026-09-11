@@ -17,7 +17,7 @@ const dict = {
   'Pool Port': 13,
   'Port of that pool.': 14,
   'Pool Public Key': 15,
-  'Leave this empty unless the pool publishes a key of its own. DATUM has one built in and uses it when this is unset, which is why a host and a port are usually all a pool asks for. A key given here must be 128 hex characters, being a signing key and an encryption key one after the other; any other length stops the gateway from starting.': 16,
+  'The key that authenticates the pool to you, prefilled with Convoy’s. Check it against the one Convoy publishes rather than trusting this package for it, and replace it if Convoy ever rotates it. Do not leave it empty: DATUM falls back to a key compiled into it, and that key belongs to a pool on the chain that kept SHA256d, so the connection would simply fail. Always 128 hex characters, a signing key and an encryption key one after the other; any other length stops the gateway from starting.': 16,
   'Pass Worker Names': 17,
   'Send each miner’s worker name to the pool.': 18,
   'Pass Full Usernames': 19,
