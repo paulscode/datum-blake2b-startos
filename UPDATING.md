@@ -57,6 +57,6 @@ rather than left to conflict.
 
 ## What is not tracked here
 
-`mining.pow_algorithm` stays `auto`, so the gateway takes its proof of work from the node.
+Convoy's fork has no `mining.pow_algorithm`; it reads the proof of work from the node's GBT rules directly.
 Nothing about the chain is pinned in this file, and a BLAKE2b activation height changing
 upstream is a node concern, not a gateway one.

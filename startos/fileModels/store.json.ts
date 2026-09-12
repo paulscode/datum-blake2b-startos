@@ -45,7 +45,7 @@ const shape = z.object({
   //
   // Settings this package controls are deliberately absent: the listen ports,
   // the RPC credentials (from the node's cookie), `save_submitblocks_dir`,
-  // `pow_algorithm` and `modify_conf`. Exposing them would let a user break the
+  // `listen_port` and `modify_conf`. Exposing them would let a user break the
   // package's own wiring.
   config: z
     .object({

@@ -56,7 +56,7 @@ services:
   # The gateway: turns the node's block templates into Stratum work a Sia-style
   # BLAKE2b ASIC can mine.
   gateway:
-    image: paulscode/datum-blake2b:1.0.12
+    image: paulscode/datum-blake2b:1.0.13@sha256:a3ae539200decf328ede3a1762706921a2be15d92360c9cf58a7316d3d6490d2
     restart: unless-stopped
     depends_on: [node]
     stop_grace_period: 30s

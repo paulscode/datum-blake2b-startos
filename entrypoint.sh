@@ -171,8 +171,7 @@ cat > "$CONF" <<JSON
 	"mining": {
 		"pool_address": "${POOL_ADDRESS}",
 		"coinbase_tag_primary": "${COINBASE_TAG}",
-		"coinbase_tag_secondary": "",
-		"pow_algorithm": "${POW_ALGORITHM:-auto}"
+		"coinbase_tag_secondary": ""
 	},
 	"api": {
 		"admin_password": "${ADMIN_PASSWORD_JSON}",
@@ -230,7 +229,7 @@ except json.JSONDecodeError as e:
 RESERVED = {
     "bitcoind": {"rpcuser", "rpcpassword", "rpcurl", "rpccookiefile"},
     "stratum": {"listen_port", "listen_addr"},
-    "mining": {"pool_address", "pow_algorithm"},
+    "mining": {"pool_address"},
     "api": {"listen_port", "listen_addr", "admin_password", "modify_conf"},
     "logger": {"log_to_console", "log_to_stderr"},
 }

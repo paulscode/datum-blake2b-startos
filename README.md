@@ -112,7 +112,7 @@ and refuses unknown groups, because `entrypoint.sh` is also the hand-run path.
 Verified: `admin_password`, `listen_port` and `pool_address` passed in
 `DATUM_SETTINGS` were all rejected while the package's real values survived.
 
-Extra here, with no counterpart upstream: `pow_algorithm`, and the `d=`/`fd=`
+Extra here, with no counterpart in Convoy's tree: the `d=`/`fd=`
 Stratum password that lets a client ask for a starting share difficulty.
 
 ## How this differs from the official `datum` package

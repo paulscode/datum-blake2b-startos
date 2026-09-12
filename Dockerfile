@@ -1,27 +1,42 @@
-# DATUM Gateway with BLAKE2b header-v2 support.
+# DATUM Gateway with BLAKE2b header-v2 support, built from Convoy's fork.
 #
-# Built from our fork, which now carries nothing of its own: it is a mirror of
-# upstream master, kept so the pin below cannot move out from under us.
+# Convoy runs the only DATUM pool that serves this chain, and their fork is the
+# client for it. Ours could not talk to it: Convoy extended the protocol, and
+# their handshake appends a "DRS\x01" resume-session block where stock Ocean has
+# a TODO. Their server closes the connection on a hello without it, so a gateway
+# built from our tree reached them, was hung up on, and with reward sharing on
+# "prefer" fell back to solo without saying why.
 #
-# Both patches this build used to carry are upstream. The h1 complete-version bug
-# is fixed in 56c31f4, in datum_pow.c rather than at the call site where ours put
-# it, which is the better place: the commitment function is now correct for any
-# caller. The test correction is 57f1aee, which replaces a "canonical profile-0
-# vector published with Knots' header-v2 implementation" that was not the
-# published vector, passing m_flags 0x5c where Knots' block_header_v2.json has
-# 0x1c and expecting values it had computed for itself. 0x5c also sets 0x40,
-# which Knots rejects as bad-flags-highbits.
+# So the base moved rather than the patch. Both forks branched from the same
+# Ocean commit (dbc3b14) and three of our four BLAKE2b commits were already in
+# theirs, being shared upstream work. The fourth, the h1 complete-version fix, is
+# their 56c31f4, done in datum_pow.c rather than at the call site.
 #
-# `--test` below is therefore now checking the gateway against Knots' own vectors
-# rather than against itself, which is the only comparison that catches the
-# gateway and the node disagreeing.
+# What is ours, and what this branch exists to carry, is the stratum password
+# difficulty feature: `d=8192` and `fd=8192`. Convoy's tree has none of it, and
+# people renting hashrate depend on it, so the two commits are cherry-picked on
+# top. They applied clean.
+#
+# VERIFIED BEFORE ADOPTION, because this decides what an ASIC is paid for:
+#   - their BLAKE2b vector, a full 164-byte v2 header, hashes identically in
+#     drongo, an independent implementation checked against live mainnet 961640
+#   - their whole test suite passes, including datum_pow_tests
+#   - solo mining on a Knots BLAKE2b regtest node: real mined shares accepted,
+#     blocks accepted, zero rejections
+#   - the Convoy handshake completes ("DATUM Server MOTD: DATUM Apex")
+#   - a Goldshell HS Box and an Innosilicon S11 mined against it for real, at
+#     parity with the old build (1.99 vs 1.76 Th/s over identical 300s windows)
+#
+# One visible change: Convoy advertises bitcoin difficulty rather than pool
+# difficulty, so mining.set_difficulty carries 1023.984375 where this used to
+# send 1024. Both of those ASICs handle it.
 #
 # Pinned by commit, not by branch. A branch name is a moving target and this is
 # the one input that decides whether the work we hand an ASIC matches consensus.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=beb946154dde86b69d9afd008974198ddd08bc4c
+ARG DATUM_REF=5b147ed72c06194f189309cdb32cb2fe181005f5
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

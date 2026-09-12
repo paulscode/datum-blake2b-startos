@@ -1,19 +1,21 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
-const notes = `Applies Convoy's pool key by itself, which 1.0.0:45 left half done.
+const notes = `Pooled mining to Convoy now works. It could not before, and no setting would have fixed it.
 
-1.0.0:45 set Convoy's key as the default for Pool Public Key. A default fills in a form; it does not write anything. So an install that updated into it still had no key stored, the gateway still fell back to the one compiled into DATUM, and nothing changed until somebody happened to open DATUM Pool and press Save. If you have already done that, this changes nothing for you.
+Convoy extended the DATUM protocol, and their server hangs up on a gateway that does not speak the addition. This one did not, so it connected, was disconnected, and with Collaborative Reward Sharing on "prefer" fell back to solo without saying why. On the gateway's own dashboard that reads as "Non-Pooled Mode", with Pool Shares stuck at zero while local shares climb, and Pool Tag showing this gateway's tag where the pool's belongs. If that is what you have been looking at, this is the release that fixes it.
 
-The key is now written on every start when it is missing, so the update applies itself.
+The gateway is now built from Convoy's own fork, which is the client for their pool, with our stratum password difficulty carried on top so that d=8192 and fd=8192 still work. That matters for rented hashrate, and Convoy's fork does not have it.
 
-It is also replaced when what is stored is DATUM's own built-in key. That key is Ocean's, and Ocean mines the chain that kept SHA256d, so it can never reach a pool on this one. It arrives that way if a config is carried over from the official Datum Gateway package, or if somebody copies it out of DATUM's documentation.
+WHAT WAS CHECKED, because this decides what your miner is paid for. Convoy's BLAKE2b test vector, a full 164-byte header, hashes identically in an independent implementation verified against live mainnet block 961640. Their whole test suite passes. Solo mining against a Bitcoin Knots BLAKE2b node produced blocks the node accepted, with zero rejections. The Convoy handshake completes. And a Goldshell HS Box and an Innosilicon S11 mined against both the old build and this one on real hardware, at parity.
 
-A key you set yourself is left alone, including one you have taken from Convoy, and any key Convoy rotates to in future.
+ONE VISIBLE CHANGE. Convoy advertises bitcoin difficulty rather than pool difficulty, so your miner is now told 1023.984375 where it used to see 1024. Both of the ASICs above handle it without complaint. Shares below difficulty 1 are also refused outright now, which no real miner produces.
 
-WHAT THIS FIXES. With Pool Host set to Convoy and no key of your own, the gateway offered Ocean's key, the handshake could not authenticate, and with Collaborative Reward Sharing on "prefer" it fell back to solo without saying why. On the dashboard that reads as "Non-Pooled Mode", with Pool Tag showing your own gateway's tag where the pool's should be, and Pool Shares stuck at zero while local shares climb. If that is what you are looking at, this is why.`
+Solo mining is unchanged and is still the default. Leaving Pool Host empty is all that takes.
+
+The SHA256 companion is not affected and stays on the previous gateway. Convoy's fork is built for this chain and defaults to Convoy's pool, which is not the right thing to hand a SHA256d node.`
 
 export const current = VersionInfo.of({
-  version: '1.0.0:46',
+  version: '1.0.0:47',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -22,10 +24,10 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. seedPoolPubkey runs on every init rather than here, so
-    // an install that never crosses this exact edge is repaired too, and so is
-    // one restored from a backup taken before it. The 1.0.0:43 store migration
-    // stays with :43.
+    // Nothing to migrate. The gateway binary changes; nothing stored does. A pool
+    // already configured keeps its host, port and key, and seedPoolPubkey still
+    // fills or repairs the key on every init. The 1.0.0:43 store migration stays
+    // with :43.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },

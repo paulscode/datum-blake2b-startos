@@ -9,7 +9,7 @@ import { sdk } from '../../sdk'
  *
  * Where they differ, they differ for a reason recorded on the action itself.
  * The settings this package controls are absent throughout: the listen ports,
- * the RPC credentials, `save_submitblocks_dir`, `pow_algorithm` and
+ * the RPC credentials, `save_submitblocks_dir` and
  * `modify_conf`. A user who could edit those could break the package's wiring
  * without any way to tell that is what happened.
  *
