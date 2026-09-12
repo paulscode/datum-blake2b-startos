@@ -1,17 +1,19 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
-const notes = `Corrects the DATUM Pool settings, which told you pooled mining was not possible on this chain.
+const notes = `Applies Convoy's pool key by itself, which 1.0.0:45 left half done.
 
-They carried a warning saying no pool served this chain, that every DATUM pool was SHA256d and could not check a BLAKE2b share, and that solo was the only mode that worked. That was true when it was written and it is not true now. Convoy serves this chain, at datum-beta1.mine.convoy.xyz on port 28915, and the warning was steering people away from a pool they could use.
+1.0.0:45 set Convoy's key as the default for Pool Public Key. A default fills in a form; it does not write anything. So an install that updated into it still had no key stored, the gateway still fell back to the one compiled into DATUM, and nothing changed until somebody happened to open DATUM Pool and press Save. If you have already done that, this changes nothing for you.
 
-Pool Public Key now comes prefilled with Convoy's. It is worth checking against the one Convoy publishes rather than trusting this package for it, because that key is what authenticates the pool to you. Do not clear it: DATUM falls back to a key compiled into it, that key belongs to a pool on the chain that kept SHA256d, and the connection would fail with nothing to say why. A key must always be 128 hex characters, a signing key and an encryption key one after the other, and any other length stops the gateway from starting. DATUM's own documentation is wrong about this, claiming an empty value is fetched from the pool; no version of DATUM does that.
+The key is now written on every start when it is missing, so the update applies itself.
 
-Nothing about how the service runs has changed. The settings were always there and always applied, and a pool you have already configured keeps working exactly as it did.
+It is also replaced when what is stored is DATUM's own built-in key. That key is Ocean's, and Ocean mines the chain that kept SHA256d, so it can never reach a pool on this one. It arrives that way if a config is carried over from the official Datum Gateway package, or if somebody copies it out of DATUM's documentation.
 
-Solo mining is still the default and still works. Leaving Pool Host empty is all that takes.`
+A key you set yourself is left alone, including one you have taken from Convoy, and any key Convoy rotates to in future.
+
+WHAT THIS FIXES. With Pool Host set to Convoy and no key of your own, the gateway offered Ocean's key, the handshake could not authenticate, and with Collaborative Reward Sharing on "prefer" it fell back to solo without saying why. On the dashboard that reads as "Non-Pooled Mode", with Pool Tag showing your own gateway's tag where the pool's should be, and Pool Shares stuck at zero while local shares climb. If that is what you are looking at, this is why.`
 
 export const current = VersionInfo.of({
-  version: '1.0.0:45',
+  version: '1.0.0:46',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -20,9 +22,9 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. This release changes the words on a form and the
-    // default of one field, not the shape of anything stored, and a pool
-    // already configured keeps its own values. The 1.0.0:43 store migration
+    // Nothing to migrate. seedPoolPubkey runs on every init rather than here, so
+    // an install that never crosses this exact edge is repaired too, and so is
+    // one restored from a backup taken before it. The 1.0.0:43 store migration
     // stays with :43.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,

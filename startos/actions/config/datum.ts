@@ -6,23 +6,9 @@ import {
   sdk,
   writeGroup,
 } from './_shared'
+import { convoyPoolPubkey } from '../../utils'
 
 const { InputSpec, Value } = sdk
-
-/**
- * Convoy's DATUM server key, read from a gateway connected to it on 11 September 2026, where the
- * dashboard reported "Connected and Ready" against Pool Tag "CONVOY".
- *
- * Prefilled rather than left empty because empty is not neutral here: DATUM compiles in a pool key
- * and uses it whenever the config names none, and that key is Ocean's, on the chain that kept
- * SHA256d. A host and a port alone would offer the wrong key to Convoy and fail with nothing to
- * say why.
- *
- * It authenticates the pool to the operator, so the description tells them to check it against
- * Convoy's own published value rather than trusting this package for it.
- */
-const CONVOY_POOL_PUBKEY =
-  'dbb11fa0c2b5403e4f798fa6071bb97e6079d219598366032fdf2ae01962b13c5e66e2be7d6b008f0b2603f3e6f6fc64768fa786c8129c46d3e30a5867734b62'
 
 const inputSpec = InputSpec.of({
   pool_host: Value.text({
@@ -49,7 +35,7 @@ const inputSpec = InputSpec.of({
       'The key that authenticates the pool to you, prefilled with Convoy’s. Check it against the one Convoy publishes rather than trusting this package for it, and replace it if Convoy ever rotates it. Do not leave it empty: DATUM falls back to a key compiled into it, and that key belongs to a pool on the chain that kept SHA256d, so the connection would simply fail. Always 128 hex characters, a signing key and an encryption key one after the other; any other length stops the gateway from starting.',
     ),
     required: false,
-    default: CONVOY_POOL_PUBKEY,
+    default: convoyPoolPubkey,
   }),
   pool_pass_workers: Value.toggle({
     name: i18n('Pass Worker Names'),

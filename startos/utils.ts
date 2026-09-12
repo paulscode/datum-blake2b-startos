@@ -32,3 +32,26 @@ export const dashboardUser = 'admin'
 // browser's HTTP-auth prompt, and DATUM also folds it into a CSRF token, so
 // punctuation buys nothing and costs transcription errors.
 export const defaultPasswordSpec = { charset: 'a-z,A-Z,0-9', len: 24 } as const
+
+/**
+ * Convoy's DATUM server key, which is the one this chain needs.
+ *
+ * Read from a gateway connected to Convoy on 11 September 2026, whose dashboard reported "Connected
+ * and Ready" against Pool Tag "CONVOY". The key authenticates the pool to the operator, so the Pool
+ * Public Key description tells them to check it against Convoy's published value rather than
+ * trusting this package for it.
+ */
+export const convoyPoolPubkey =
+  'dbb11fa0c2b5403e4f798fa6071bb97e6079d219598366032fdf2ae01962b13c5e66e2be7d6b008f0b2603f3e6f6fc64768fa786c8129c46d3e30a5867734b62'
+
+/**
+ * The key DATUM falls back to when none is configured, from `datum_conf.c`.
+ *
+ * It is Ocean's, and Ocean mines the chain that kept SHA256d, so on this chain it is never a usable
+ * answer: the handshake is encrypted and signed to the pool's key, so offering this one to Convoy
+ * cannot authenticate. A gateway configured with Convoy's host and no key therefore fails, and with
+ * reward sharing on "prefer" it falls back to solo without saying why. Recorded here so that
+ * {@link seedPoolPubkey} can recognise it and replace it.
+ */
+export const datumBuiltinPoolPubkey =
+  'f21f2f0ef0aa1970468f22bad9bb7f4535146f8e4a8f646bebc93da3d89b1406f40d032f09a417d94dc068055df654937922d2c89522e3e8f6f0e649de473003'
