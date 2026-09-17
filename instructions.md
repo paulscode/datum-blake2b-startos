@@ -67,6 +67,11 @@ one.
 23336 rather than the official Datum service's 23334, so both can run on one
 server.
 
+The gateway's own dashboard also shows this now, on its status page as **Point
+Your Miner At**. On StartOS it fills the host in from whatever address you opened
+the dashboard with, so it is a convenience rather than a second source of truth —
+the Interfaces tab is the one that knows the port StartOS actually assigned.
+
 ### 4. Point your miner at it
 
 In your miner's own web interface, set the pool to that Stratum address.

@@ -336,6 +336,34 @@ comment beside it.
 Neither has been measured here on real SC1 hardware — the evidence is a third-party
 report. Treat the matrix below as unchanged until an SC1 row can be added to it.
 
+## The stratum endpoint on the status page
+
+The gateway's status page carries a **Point Your Miner At** row. Two things fill
+it, and which one depends on the platform.
+
+`stratum.advertised_host`, when set, makes the gateway render the whole endpoint
+server side. **This package does not set it.** StartOS already publishes an
+authoritative stratum address on the Interfaces tab, including the external port
+it actually assigned, which the gateway inside the container cannot know.
+
+The Umbrel app does set it, from its `hooks/pre-start`, because Umbrel has no
+equivalent surface. That hook runs on the host rather than in a container, so
+`ip route get` gives it the address the device answers on — the one thing the
+gateway cannot see from inside the apps network. It is rewritten on every app
+start, since it is derived and a DHCP lease can move.
+
+With it unset the page fills the host in from `window.location.hostname`, the
+address you opened the dashboard with, and says so when that is a name rather
+than an IP, because mining firmware generally cannot resolve one.
+
+The port is always the gateway's own listen port. That is the port a miner uses
+wherever the container's port is published straight through, which covers both
+platforms; an operator who remapped it in their own compose file is the exception
+and can put the right answer in `advertised_host`.
+
+The value is restricted at config load to hostname and IP-literal characters and
+refused at startup otherwise, because it is rendered into the page.
+
 ## Build
 
 ```
