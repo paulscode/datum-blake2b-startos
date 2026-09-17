@@ -66,6 +66,12 @@ const shape = z.object({
           vardiff_quickdiff_delta: z.number().int().positive().optional(),
           share_stale_seconds: z.number().int().positive().optional(),
           fingerprint_miners: z.boolean().optional(),
+          // 8 or 4. Only written when it is 4: 8 is DATUM's own default, and
+          // this package's convention is that unset means "do not write it".
+          // The gateway refuses to start on any other value, so the union is
+          // what keeps a hand-edited store from producing a container that
+          // will not boot.
+          extranonce2_size: z.union([z.literal(8), z.literal(4)]).optional(),
           idle_timeout_no_subscribe: z.number().int().nonnegative().optional(),
           idle_timeout_no_shares: z.number().int().nonnegative().optional(),
           idle_timeout_max_last_work: z.number().int().nonnegative().optional(),

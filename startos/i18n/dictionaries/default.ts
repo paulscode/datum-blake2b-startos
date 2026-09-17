@@ -122,6 +122,11 @@ const dict = {
   'Estimated hashrate': 118,
   'Could not read the hashrate': 119,
   'A Bitcoin address starting with bc1, 1 or 3, from a wallet whose keys you hold. A block found solo pays its whole subsidy here.': 120,
+  'Extranonce2 Size': 121,
+  'How many bytes of the extranonce your mining hardware varies. Leave this at 8 unless you run firmware with a 32-bit extranonce2, such as the Obelisk SC1 Gen 2, which refuses work at 8.': 122,
+  'This changes what every miner on this gateway is told when it connects, not just one of them. Change it only if all your hardware accepts the new value, and watch for accepted shares afterwards.': 123,
+  '8 bytes — every other miner': 124,
+  '4 bytes — Obelisk SC1 Gen 2': 125,
 } as const
 
 /**

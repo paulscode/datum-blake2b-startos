@@ -254,6 +254,88 @@ guide states patterns are checked on every path into an action, so this looks li
 discrepancy worth reporting upstream. Until then the handler check is the real gate,
 and it is the one that matters here.
 
+## Obelisk SC1 Gen 2, and the extranonce split
+
+The hasher extranonce is a fixed 12 bytes and the work root is always
+`BLAKE2b(0x00 || coinb1(39) || extranonce(12))`, a 52-byte leaf. How those 12 bytes
+divide between the session id the gateway owns and the part a miner varies is not
+fixed: stratum negotiates it in the `mining.subscribe` reply. This package serves a
+4/8 split by default, which is what every device in the matrix below was tested on.
+
+The SC1 Gen 2 (`ob2`, cgminer-sia 4.10.0) does not fit that split, in two separate
+ways, and the gateway now handles both.
+
+**It has a 32-bit extranonce2 compiled in.** Stock firmware checks the advertised
+size against 4 and refuses the job at 8. **Extranonce2 Size** in the Stratum config
+action moves the split to 8/4 for it: the session id is padded out to 8 bytes rather
+than the field being shortened, so the miner concatenates coinb1, extranonce1 and
+extranonce2 exactly as before and still arrives at the same 52 bytes. Only the range
+it varies shrinks, from 2^64 to 2^32, which is far more than one connection exhausts
+between work updates.
+
+This is per gateway, not per miner, and it is what every miner on it is told at
+connect. It is negotiated once per connection and held, so a config change does not
+move the split under hardware already connected — but new connections get the new
+one. A mixed fleet either needs the rest of the hardware verified on 8/4 first, or a
+second gateway.
+
+**On every platform this image serves, in the place that platform keeps settings.**
+StartOS has it under **Config → Stratum**, written to `store.json` and merged into
+the generated config. Umbrel has no settings form of its own, so it is on the
+gateway's own dashboard **Config** page as **Extranonce2 size**, which is where
+`api.modify_conf` being true there earns its keep. Plain Docker can pass
+`DATUM_SETTINGS='{"stratum":{"extranonce2_size":4}}'`, or edit the config file.
+
+Setting it restarts the gateway, deliberately: the split is negotiated at subscribe,
+so without a restart the miners already connected keep the old one and the setting
+looks like it did nothing.
+
+Verified end to end against this image run exactly as the Umbrel app runs it —
+`entrypoint: ["/usr/local/bin/datum_gateway"]` against the bind-mounted config, as
+user 1000:1000. The form wrote the config file, the gateway re-executed **in place**
+(container restart count stayed 0), and the wire changed from `extranonce1` 4 bytes
+/ size 8 to 8 bytes / size 4, with the leaf still 52 bytes either way. Reverting to
+8 put it back, and a crafted POST of any other value was refused with an error and
+left the config alone.
+
+The absolute path in that `entrypoint` is load-bearing and worth not "tidying":
+`datum_reexec()` calls `execv(argv[0], ...)`, which does not search `PATH`. Invoked
+as a bare `datum_gateway` the re-exec fails and the gateway aborts instead, leaving
+the restart to the container policy. The app already does the right thing; this is
+only a note for anyone editing that line.
+
+The Umbrel app's `hooks/pre-start` sets `bitcoind.*`, `api.admin_password`,
+`api.modify_conf`, `mining.pool_address` and `datum.pool_pubkey`, and nothing else —
+so a split chosen in the dashboard is not undone on the next start.
+
+**Patched firmware submits a 32-bit nonce2 in the 8-byte field.** A unit patched to
+pass its own size check hashes its work root over the value zero-padded to 8 bytes,
+but hex-encodes 8 bytes out of a 4-byte variable, so the high 4 bytes on the wire are
+whatever sat next to it in memory. Read literally they rebuild a different root and
+every share is rejected `H-not-zero`.
+
+Nothing is configured for this. The gateway reads the extranonce2 exactly as
+submitted first, and only if that fails the `H-not-zero` gate does it retry with the
+high 4 bytes zeroed. A miner whose shares reconstruct as submitted never reaches the
+retry, so this costs compliant hardware nothing and cannot reinterpret it; and once a
+connection has passed the gate on a share whose high bytes were not zero, it is
+latched as meaning all 8 and is never second-guessed again. The first rescued share
+on a connection is logged with the miner's address and user agent:
+
+```
+Client 10.0.0.7/cgminer/4.10.0 submits a 32-bit extranonce2 in an 8-byte field;
+zero-extending it for this connection.
+```
+
+Both behaviours are covered by unit tests in the gateway
+(`datum_stratum_tests.c`), which the Docker build runs via `datum_gateway --test`,
+so a regression in either fails the image build rather than the farm. The tests use
+BLAKE2b work vectors mined for the purpose; each carries the search recipe in a
+comment beside it.
+
+Neither has been measured here on real SC1 hardware — the evidence is a third-party
+report. Treat the matrix below as unchanged until an SC1 row can be added to it.
+
 ## Build
 
 ```

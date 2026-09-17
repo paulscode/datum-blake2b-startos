@@ -1,21 +1,19 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
-const notes = `Pooled mining to Convoy now works. It could not before, and no setting would have fixed it.
+const notes = `The Obelisk SC1 Gen 2 can mine through this gateway now. Nothing changes for any other miner: what the gateway says to hardware when it connects is byte-for-byte what the previous release said, and that was checked against the previous build running side by side.
 
-Convoy extended the DATUM protocol, and their server hangs up on a gateway that does not speak the addition. This one did not, so it connected, was disconnected, and with Collaborative Reward Sharing on "prefer" fell back to solo without saying why. On the gateway's own dashboard that reads as "Non-Pooled Mode", with Pool Shares stuck at zero while local shares climb, and Pool Tag showing this gateway's tag where the pool's belongs. If that is what you have been looking at, this is the release that fixes it.
+The SC1 Gen 2 has a 32-bit extranonce2 built into its firmware, where this gateway asks for 8 bytes. It goes wrong in two different ways depending on whether the firmware has been modified, and both are handled.
 
-The gateway is now built from Convoy's own fork, which is the client for their pool, with our stratum password difficulty carried on top so that d=8192 and fd=8192 still work. That matters for rented hashrate, and Convoy's fork does not have it.
+IF YOUR SC1 IS RUNNING PATCHED FIRMWARE, there is nothing to set. That firmware sends 4 bytes of real value and 4 bytes of whatever happened to be sitting next to it in memory, which used to make every share come back rejected as H-not-zero. The gateway now reads the share as sent first and, only if that fails, reads it again the way the miner actually calculated it. A miner whose shares already work never reaches the second attempt, so this cannot affect it.
 
-WHAT WAS CHECKED, because this decides what your miner is paid for. Convoy's BLAKE2b test vector, a full 164-byte header, hashes identically in an independent implementation verified against live mainnet block 961640. Their whole test suite passes. Solo mining against a Bitcoin Knots BLAKE2b node produced blocks the node accepted, with zero rejections. The Convoy handshake completes. And a Goldshell HS Box and an Innosilicon S11 mined against both the old build and this one on real hardware, at parity.
+IF YOUR SC1 IS STOCK, it refuses the work outright, and there is a new setting. Config, then Stratum, then Extranonce2 Size: choose "4 bytes". Leave it on 8 for anything else. This is not a per-miner setting - it changes what every miner on this gateway is told, so if you have other hardware pointed at it, check that it is still getting shares accepted afterwards. The gateway restarts when you change it, so your miners reconnect and pick up the new value.
 
-ONE VISIBLE CHANGE. Convoy advertises bitcoin difficulty rather than pool difficulty, so your miner is now told 1023.984375 where it used to see 1024. Both of the ASICs above handle it without complaint. Shares below difficulty 1 are also refused outright now, which no real miner produces.
+This has not been tested on real SC1 hardware. It was built from a detailed report by somebody who got one mining, and verified here against software built to match how that firmware behaves. That is why the setting is off by default. If you have one, whether it works or not is worth posting on the forum.
 
-Solo mining is unchanged and is still the default. Leaving Pool Host empty is all that takes.
-
-The SHA256 companion is not affected and stays on the previous gateway. Convoy's fork is built for this chain and defaults to Convoy's pool, which is not the right thing to hand a SHA256d node.`
+Also in this release: the block subsidy for the gateway's own empty work is now taken from the block template rather than recalculated. On Bitcoin the two are the same number, so nothing changes for you; on a test chain with a different halving schedule the old calculation was wrong and cost blocks.`
 
 export const current = VersionInfo.of({
-  version: '1.0.0:47',
+  version: '1.0.0:48',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -24,10 +22,10 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. The gateway binary changes; nothing stored does. A pool
-    // already configured keeps its host, port and key, and seedPoolPubkey still
-    // fills or repairs the key on every init. The 1.0.0:43 store migration stays
-    // with :43.
+    // Nothing to migrate. The new stratum.extranonce2_size is optional in the
+    // store and absent means DATUM's own default of 8, which is what every
+    // existing install was already running. Verified by merging a store written
+    // before this feature existed: the key stays absent.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },

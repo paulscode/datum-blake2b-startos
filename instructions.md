@@ -142,6 +142,31 @@ identically.
 Other Sia BLAKE2b miners are expected to work but have not been tried. If you try
 one, saying so on the forum is useful, including when it works.
 
+### Obelisk SC1 Gen 2
+
+This one needs a setting changed, and it is the only miner so far that does.
+
+Its firmware only understands a 4-byte extranonce2, where everything above uses 8,
+so it refuses the work the gateway normally sends. Go to **Config → Stratum** and
+set **Extranonce2 Size** to **4 bytes — Obelisk SC1 Gen 2**. The gateway restarts,
+and your miner should start getting accepted shares.
+
+On Umbrel there is no Config → Stratum page. Open the gateway's own dashboard,
+sign in, and the same setting is on its **Config** page as **Extranonce2 size**.
+
+**This applies to every miner on this gateway, not just the SC1.** If you have other
+mining hardware pointed at it, check that it is still getting shares accepted after
+you change this. If it is not, set it back to 8 — the other hardware has not been
+tested on the new value.
+
+If you already run an SC1 with patched firmware, from the write-up circulating on
+the forum, leave this on 8. That firmware needs the 8-byte size, and the gateway
+handles its extranonce quirk on its own with nothing for you to set.
+
+This has not been tested here on a real SC1. It is built from a detailed report by
+someone who got one mining, so if you have one, whether it works or not is worth
+posting.
+
 **Your miner may report a lot of hardware errors here.** One tester saw that, and
 saw it stop when they pointed the same miner at a normal Sia pool. On their
 device's own chip page, nearly all of it came from three chips out of thirty-six,
