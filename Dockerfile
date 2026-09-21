@@ -33,10 +33,18 @@
 #
 # Pinned by commit, not by branch. A branch name is a moving target and this is
 # the one input that decides whether the work we hand an ASIC matches consensus.
+#
+# e998e38 adds the dupe table index fix and the local share reject reasons. The
+# fix is the reason to move: the per-thread duplicate share table corrupted its
+# own bucket index the first time it filled, which is a few hours of mining, and
+# only restarting the gateway cleared it. The reject reasons ship with it rather
+# than after it, because they are how an operator sees whether it worked: the
+# dashboard now says what refused a share instead of only how many. Both went
+# upstream as OCEAN #237 and Convoy #18.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=2f9f736518ae1f66dc94dfcf689139df3677e0ef
+ARG DATUM_REF=e998e38ee198da26129e45ffa80402157ae76c55
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

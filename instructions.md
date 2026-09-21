@@ -36,6 +36,25 @@ on **Bitcoin Knots (BLAKE2b) Companion**. That is a wallet living on the server
 with no seed phrase in your hands, so it is only as safe as your backups of that
 service.
 
+### Mined coins cannot be spent straight away
+
+A block's subsidy is locked for a while before it can be moved. This is a network
+rule, not a setting, and it applies wherever you send the payout.
+
+The wait used to be 100 blocks, about 16 hours. The chain has since deployed a
+temporary longer one: 6480 blocks, roughly 45 days at a ten minute block target.
+It applies to coins already mined as well as new ones, so a payout that was
+spendable before nodes took the rule is not spendable after it.
+
+Nothing is lost. The coins are yours and arrive as soon as the wait is over. But
+plan for it: if you mine a block today, expect to wait about six weeks before you
+can spend it. A wallet that follows the rule will show the coins as immature and
+say when they unlock. The BLAKE2b build of Sparrow does this; a wallet that does
+not know the rule may offer the coins and then fail when you try to send them.
+
+The maturity rule is being extended further. Check the release notes on the
+Companion app for the current figure rather than assuming this one.
+
 ### 2. Tell the gateway where to pay
 
 1. Come back to this service.
