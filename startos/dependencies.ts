@@ -51,7 +51,13 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
     // startup.
     'knots-blake2b': {
       kind: 'running',
-      versionRange: '>=1.0.0',
+      // Raised from '>=1.0.0' for the long coinbase maturity rule. The gateway
+      // takes its transaction list verbatim from the node's getblocktemplate and
+      // has no selection or validation of its own, so a node that has not taken
+      // the rule will hand it transactions that became invalid at height 973440
+      // and every block it builds from them is rejected. Nothing in the gateway
+      // can detect that, which is why the pairing is stated here instead.
+      versionRange: '>=1.0.0:36',
       healthChecks: ['node'],
     },
   }
