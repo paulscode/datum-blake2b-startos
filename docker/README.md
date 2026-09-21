@@ -83,8 +83,10 @@ docker compose exec node bitcoin-cli -datadir=/data -chain=main -rpcwallet=minin
 `-chain=main` rather than no flag: mainnet is bitcoind's default and there is no
 `-mainnet` option, but naming it explicitly beats relying on the absence of one.
 
-Freshly mined coins need 100 more blocks before they can be spent, so a working
-miner's balance sits in `immature` for about a day. That is normal.
+Freshly mined coins cannot be spent straight away, so a working miner's balance
+sits in `immature` for a while. The wait used to be 100 blocks, about 16 hours; the
+chain has deployed a temporary longer one of 6480 blocks, roughly 45 days at a ten
+minute block target, which also applies to coins mined before it. That is normal.
 
 ## Which miners work
 

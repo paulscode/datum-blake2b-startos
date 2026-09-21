@@ -36,7 +36,7 @@ on **Bitcoin Knots (BLAKE2b) Companion**. That is a wallet living on the server
 with no seed phrase in your hands, so it is only as safe as your backups of that
 service.
 
-### Mined coins cannot be spent straight away
+#### Mined coins cannot be spent straight away
 
 A block's subsidy is locked for a while before it can be moved. This is a network
 rule, not a setting, and it applies wherever you send the payout.
