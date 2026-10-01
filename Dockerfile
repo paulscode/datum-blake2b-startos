@@ -34,17 +34,54 @@
 # Pinned by commit, not by branch. A branch name is a moving target and this is
 # the one input that decides whether the work we hand an ASIC matches consensus.
 #
-# e998e38 adds the dupe table index fix and the local share reject reasons. The
-# fix is the reason to move: the per-thread duplicate share table corrupted its
-# own bucket index the first time it filled, which is a few hours of mining, and
-# only restarting the gateway cleared it. The reject reasons ship with it rather
-# than after it, because they are how an operator sees whether it worked: the
-# dashboard now says what refused a share instead of only how many. Both went
-# upstream as OCEAN #237 and Convoy #18.
+# e998e38 added the dupe table index fix and the local share reject reasons,
+# both sent upstream as OCEAN #237 and Convoy #18.
+#
+# blake2b-full-payout (the pin below) is the same work moved onto Convoy's
+# current master, plus iohzrd's coinbase fixes, because every build up to
+# 1.0.0:52 paid at most about 17 miners per block. The gateway still gave each
+# miner the coinbase class its firmware was known to accept, and fell back to
+# the 750-byte Antminer class for hardware it did not recognise, which is every
+# BLAKE2b ASIC. That class holds about 17 pool outputs; the rest of a pool's
+# split went unpaid in the block and the pool had to make it good later. The
+# size limits only ever existed for SHA256d firmware that rebuilds the coinbase
+# itself. A BLAKE2b miner is sent a 39-byte commitment and never sees the
+# coinbase, so they protect nothing on this chain.
+#
+#   - Convoy master (ac9b70c) already serves every miner the largest class
+#     (16 KB), but sizes it to the template with the 80-byte header's weight,
+#     so a coinbase grown to fill a nearly full template overshoots the weight
+#     limit by about 300 units: an invalid block. Latent at the node's default
+#     block size; real for anyone who raises Max Block Weight near the maximum.
+#   - iohzrd's 40cf813, 7491a50 and c031568 count the 164-byte header and the
+#     coinbase's 124 static bytes, enforce the template's sigop limit, and raise
+#     the class to 32,000 bytes and 1024 outputs, enough for Lazarus's ~440-miner
+#     window with room to spare.
+#   - Our commits on top, unchanged in purpose: password difficulty, empty-work
+#     subsidy, Obelisk SC1 Gen 2, the advertised stratum endpoint, the dupe fix
+#     and reject reasons. Dropped: our config POST fix (Convoy's 60dbf47 does
+#     the same) and the NiceHash difficulty floor (Convoy removed fingerprinting).
+#     Convoy's refactor added a fixed 16-character extranonce2 check that would
+#     have refused every share from a 4-byte extranonce2 miner; it is removed in
+#     the Obelisk commit, where the per-connection check already covers it.
+#   - Lazarus Pool's late-coinbaser patch (79595ce): while pooled, never serve
+#     a full template whose coinbase pays only the pool, which happened for a
+#     moment after every new block and whenever the pool's split was late.
+#
+# VERIFIED: every commit builds and passes --test on its own. cd36191 adds a
+# test that builds the real coinbase against templates up to full and measures
+# the block; it fails on the old arithmetic (up to 312 units over) and passes
+# here. An empty template carries 911 of 1024 outputs. Real BLAKE2b shares,
+# with 8- and 4-byte extranonce2, were mined through it on Knots regtest and the
+# node took every block. Against Lazarus from a synced mainnet BLAKE2b node, the
+# handshake completed, the pool listed the gateway on the DATUM fee path, and
+# its split arrived (108 outputs, about 3.5 KB, well inside the class). The count
+# written into the coinbase is not visible from outside, because the miner only
+# ever sees a commitment; the test above is what measures it.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=e998e38ee198da26129e45ffa80402157ae76c55
+ARG DATUM_REF=79595cede73bd9021a6e9fc111736e5f504f9b9f
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

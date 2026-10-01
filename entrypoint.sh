@@ -165,8 +165,7 @@ cat > "$CONF" <<JSON
 	},
 	"stratum": {
 		"listen_port": ${STRATUM_PORT},
-		"vardiff_min": ${VARDIFF_MIN},
-		"fingerprint_miners": ${FINGERPRINT_MINERS:-true}
+		"vardiff_min": ${VARDIFF_MIN}
 	},
 	"mining": {
 		"pool_address": "${POOL_ADDRESS}",

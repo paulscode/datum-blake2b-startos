@@ -64,13 +64,6 @@ const inputSpec = InputSpec.of({
     integer: true,
     units: 's',
   }),
-  fingerprint_miners: Value.toggle({
-    name: i18n('Fingerprint Miners'),
-    description: i18n(
-      'Identify mining hardware from how it behaves, so the dashboard can name it.',
-    ),
-    default: true,
-  }),
   // The hasher extranonce is a fixed 12 bytes; this is only how they are split
   // between the session id and the part a miner varies. A select rather than a
   // number because the gateway refuses to start on any other value, and a form

@@ -3,9 +3,9 @@
 DATUM Gateway serving Sia-style BLAKE2b work, so an existing Sia-compatible ASIC can
 mine the BLAKE2b chain. Packaged for StartOS 0.4.0.x.
 
-**One chain: BLAKE2b on mainnet**, following the node package, and **solo mining
-only**: pooled BLAKE2b is not possible today because the pool server is
-closed-source and SHA256d-only.
+**One chain: BLAKE2b on mainnet**, following the node package. Solo by default;
+pooled at a DATUM pool that serves this chain (Lazarus, Convoy) through the
+**DATUM Pool** action.
 
 The chain used to be read from the node's own generated `bitcoin.conf` through the
 read-only mount this package has, because bitcoind kept each chain's data,
@@ -13,10 +13,57 @@ including its RPC cookie, in a subdirectory named for that chain, and the node
 could be on any of three. That is gone as of 1.0.0:43, with the node package's
 chain selector: the cookie is at `/knots/.cookie` and nowhere else.
 
-Pooled mining is worth restating because it comes up: no DATUM pool can serve this
-chain, and that is not a matter of anyone adding an endpoint. A pool validates
-shares against the chain's proof of work, so a BLAKE2b share is unintelligible to
-a SHA256d pool.
+Pooled mining needs a pool built for this chain. A pool validates shares against
+the chain's proof of work, so Ocean and every other SHA256d DATUM pool cannot take
+a BLAKE2b share. Convoy and Lazarus run BLAKE2b DATUM pools, and since 1.0.0:47
+this package builds from Convoy's gateway fork, whose handshake those pools
+require. Earlier versions of this README said pooled mining was impossible; that
+was true before those pools existed and is not now.
+
+## Pooled mining and the coinbase
+
+A DATUM pool sends the gateway its payout split (the "coinbaser"), and the
+gateway writes those outputs into the coinbase of the blocks it builds. A block
+found through this gateway pays the pool's window directly. Any output the
+coinbase has no room for is left out of that block, and the pool pays it later
+as a "make-good". Users notice make-goods, because they are an IOU from the pool
+rather than an output of the block.
+
+**Up to 1.0.0:52 this package capped a block at about 17 payouts.** The gateway
+inherited OCEAN's coinbase size classes, which exist for SHA256d firmware that
+rebuilds the coinbase itself, and gave each miner a class by fingerprinting its
+user agent. Nothing fingerprinted a BLAKE2b ASIC, so every miner fell to the
+default 750-byte Antminer class: about 17 outputs. On BLAKE2b the miner is sent a
+39-byte commitment and never sees the coinbase, so the classes protect nothing.
+Lazarus's window is about 440 miners, so most of every block we found became
+make-goods. Reported by users on 2026-09-30, with Lazarus's pool page naming the
+cause.
+
+**1.0.0:53 builds `blake2b-full-payout`** in `paulscode/datum_gateway`: Convoy
+master, then iohzrd's three coinbase commits, then ours, then Lazarus's
+late-coinbaser patch. Details and verification are in the Dockerfile's header.
+What it changes for payouts:
+
+- One class for everyone: up to 32,000 bytes and 1024 outputs, fitted to the
+  template's remaining weight, size and sigop room. An empty template carries 911
+  of 1024 mixed-type outputs.
+- The fit counts the 164-byte BLAKE2b header. Convoy master still uses the 80-byte
+  header's 340 weight units in the weight check, so a coinbase grown to a nearly
+  full template comes out about 300 units over the limit: an invalid block. That
+  bites only when the node's `blockmaxweight` is near the maximum, because Knots'
+  default templates (300,000 bytes) leave megabytes of room. A test in the branch
+  builds the real coinbase and measures the block, and fails on the old numbers.
+- While pooled, no job whose coinbase pays only the pool. Before the split
+  arrives the gateway serves the subsidy-only empty job on a new block, and
+  otherwise lets miners keep their current work.
+
+Make-goods can still happen: a node with Max Block Weight near the maximum and a
+full mempool, a pool window larger than about 900 miners, or a block found by
+another gateway with its own limits. When a user reports make-goods, check the
+version first, then the node's Max Block Weight.
+
+The **Fingerprint Miners** setting went with the classes; the gateway no longer
+has the option.
 
 ## Install
 

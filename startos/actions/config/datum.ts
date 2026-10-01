@@ -14,7 +14,7 @@ const inputSpec = InputSpec.of({
   pool_host: Value.text({
     name: i18n('Pool Host'),
     description: i18n(
-      'Hostname of a DATUM pool. Convoy is the pool for this chain, at datum-beta1.mine.convoy.xyz on port 28915. Leave empty to mine solo.',
+      'Hostname of a DATUM pool that serves this chain, from the pool’s own website: for example datum.lazarus-xbt.xyz for Lazarus or datum-beta1.mine.convoy.xyz for Convoy, both on port 28915. Leave empty to mine solo.',
     ),
     required: false,
     default: null,
@@ -32,14 +32,16 @@ const inputSpec = InputSpec.of({
   pool_pubkey: Value.text({
     name: i18n('Pool Public Key'),
     description: i18n(
-      'The key that authenticates the pool to you, prefilled with Convoy’s. Check it against the one Convoy publishes rather than trusting this package for it, and replace it if Convoy ever rotates it. Do not leave it empty: DATUM falls back to a key compiled into it, and that key belongs to a pool on the chain that kept SHA256d, so the connection would simply fail. Always 128 hex characters, a signing key and an encryption key one after the other; any other length stops the gateway from starting.',
+      'The key that authenticates the pool to you, prefilled with Convoy’s. For any other pool, paste the key that pool publishes. Either way, check it against the pool’s own website rather than trusting this package for it, and replace it if the pool ever rotates it. Do not leave it empty: DATUM falls back to a key compiled into it, and that key belongs to a pool on the chain that kept SHA256d, so the connection would simply fail. Always 128 hex characters, a signing key and an encryption key one after the other; any other length stops the gateway from starting.',
     ),
     required: false,
     default: convoyPoolPubkey,
   }),
   pool_pass_workers: Value.toggle({
     name: i18n('Pass Worker Names'),
-    description: i18n('Send each miner’s worker name to the pool.'),
+    description: i18n(
+      'Send each miner’s worker name to the pool, so the pool can show your miners separately. Lazarus asks for this.',
+    ),
     default: false,
   }),
   pool_pass_full_users: Value.toggle({

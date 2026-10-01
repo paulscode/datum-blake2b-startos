@@ -1,15 +1,21 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
-const notes = `Update the companion node as well as this app. If you mine against a node that has not taken the chain's new coinbase maturity rule, the blocks you find will be rejected.
+const notes = `Pooled mining now puts the pool's whole payout list in the blocks your gateway finds. Every earlier version of this app put at most about 17 pool payouts in a block's coinbase; everyone else in the window was left out of that block and had to be paid later by the pool as a make-good.
 
-The gateway takes its list of transactions straight from the node and does not check them, so this is not something it can protect you from. A node without the rule will offer transactions that stopped being valid at block 973440, and any block built from them is invalid. Bitcoin Knots (BLAKE2b) Companion 1.0.0:36 is the first version with the rule, and this release now says so as a dependency, so the interface will tell you if the pairing is wrong.
+The cause was a size limit meant for SHA256 mining hardware, which rebuilds the coinbase itself and can only take so much. The gateway applied a 750-byte class to any miner it did not recognise, which is every BLAKE2b miner. BLAKE2b miners never see the coinbase, so the limit protected nothing. The coinbase can now hold up to 1024 payouts, sized to the room the block has left. At the node's default block size there is room for about 900, more than twice the payout list of the largest pool on this chain today.
 
-Nothing about how the gateway mines changes, and you do not need to reconfigure your miners.
+Also from upstream work by CONVOY, iohzrd and Lazarus Pool:
 
-This release also documents how long mined coins are locked, which the setup instructions did not say at all. The wait used to be 100 blocks, about 16 hours; it is now 6480 blocks, roughly 45 days at a ten minute block target, and it applies to coins already mined as well as new ones. Nothing is lost, but a first block arriving and then sitting unspendable is expected rather than a fault. Use a wallet that knows the rule; one that does not may offer the coins and then fail when you try to send them.`
+- A coinbase grown to fill a nearly full block is now measured against the BLAKE2b header, which is larger than the old one. Without this, a large coinbase could push a full block over the weight limit and the network would reject it.
+- While pooled, the gateway no longer hands out work whose coinbase pays only the pool. That used to happen for a moment after each new block, and whenever the pool was slow to send its payout list.
+- Payouts are kept within the block's signature operation limit.
+
+The Fingerprint Miners setting is gone, because the gateway no longer has it. Your other settings are kept, and you do not need to reconfigure your miners.
+
+Solo mining is unchanged.`
 
 export const current = VersionInfo.of({
-  version: '1.0.0:52',
+  version: '1.0.0:53',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -18,9 +24,9 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. The dupe table is rebuilt from nothing on every start,
-    // so the corrupted state this fixes cannot survive the restart that installing
-    // this performs, and the new reject counters start at zero by the same route.
+    // Nothing to migrate. A stored fingerprint_miners from before is dropped by
+    // the store schema on read, so it never reaches the gateway, and the gateway
+    // ignores keys it does not know in any case.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },

@@ -95,14 +95,16 @@ the Interfaces tab is the one that knows the port StartOS actually assigned.
 
 In your miner's own web interface, set the pool to that Stratum address.
 
-**The worker name and password are not used.** You do not put your payout address
-here. Some pools want `address.workername` as the username; this does not, because
-it is not pooled mining. The payout comes entirely from the address you set in step
-2, and DATUM's own documentation is explicit that Stratum usernames "have no effect
-whatsoever" in non-pooled mode.
+**Mining solo (the default), the worker name and password are not used.** You do
+not put your payout address here. The payout comes entirely from the address you
+set in step 2, and DATUM's own documentation is explicit that Stratum usernames
+"have no effect whatsoever" in non-pooled mode. Put something readable like
+`hsbox` so you can tell miners apart on the dashboard, and anything at all as the
+password.
 
-Put something readable like `hsbox` so you can tell miners apart on the dashboard,
-and anything at all as the password.
+**Mining at a pool, the username decides who gets paid.** Use
+`youraddress.workername`, for example `bc1q...xyz.hsbox`: the part before the first
+`.` is the address the pool pays. See [Mining at a pool](#mining-at-a-pool) below.
 
 Then open the **Web UI** interface on this service. Once the miner connects you
 should see its hashrate and shares climbing.
@@ -255,7 +257,43 @@ Two settings are not in there, because this service manages them for you: where
 your block rewards go (**Set Payout Address**) and the dashboard password
 (**Dashboard Password**).
 
-**DATUM Pool is the one to leave alone.** No pool can serve this chain: a pool
-checks shares against the chain's proof of work, and every DATUM pool does
-SHA256d, so none of them can check a BLAKE2b share. Leaving those settings empty
-means solo mining, which is what works.
+**DATUM Pool decides whether you mine solo or at a pool.** Leave it empty to mine
+solo. To mine at a pool, see the next section.
+
+## Mining at a pool
+
+A DATUM pool lets your miners share in the blocks every miner at the pool finds,
+instead of waiting to find one alone. Your node still builds the blocks; the pool
+only sends the list of payouts to put in them. Lazarus and Convoy both run DATUM
+pools on this chain.
+
+1. Get the pool's settings from the pool's own website: host, port and public
+   key. Copy the public key from there rather than trusting any copy of it,
+   including the one this service prefills.
+2. Go to **Actions**, run **DATUM Pool**, and enter them. Turn on **Pass Worker
+   Names** if the pool asks for it, and **Pooled Mining Only** if you would rather
+   your miners stop than fall back to solo when the pool is unreachable.
+3. Set each miner's username to `youraddress.workername`, as in step 4.
+
+Keep the address from **Set Payout Address**. While pooled it is only paid for
+work done when the pool is unreachable and the gateway falls back to solo.
+
+The gateway's log says `DATUM Server MOTD` once it is connected, and most pools
+list connected gateways on their own site.
+
+**How payouts work at a pool.** Every block a pool member finds pays everyone in
+the pool's current window directly, as outputs of that block. Mined coins on this
+chain are locked for 6480 blocks, about 45 days, so expect the wait described in
+step 1. When a block cannot carry someone's payout, the pool pays it later in a
+separate output, often called a make-good. Those depend on the pool keeping its
+word, so fewer of them is better.
+
+**Before 1.0.0:53 this service caused most of the make-goods.** It put at most
+about 17 payouts in a block, so a block it found paid only the first 17 or so
+miners in the window and left the rest to the pool. It now carries up to about
+900 at the node's default block size, which is more than any pool on this chain
+needs today.
+
+**If you raise the node's Max Block Weight** close to its maximum, a block full of
+transactions leaves less room for payouts, and some will again be left to the
+pool. The node's default leaves plenty.
