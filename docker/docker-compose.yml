@@ -38,7 +38,7 @@ services:
   # accepts no inbound ones. That is enough to sync and to mine. Publish it if
   # you want to serve peers.
   node:
-    image: paulscode/knots-blake2b:1.0.9
+    image: paulscode/knots-blake2b:1.0.12@sha256:f67efcee069a719c48414621d76f3cd1c1c3c16e8f011d0ae1dd281d1e99f9d9
     restart: unless-stopped
     # Long, and it matters. bitcoind flushes its chainstate on shutdown, and a
     # stop that does not wait for it throws away everything since the last
@@ -56,7 +56,7 @@ services:
   # The gateway: turns the node's block templates into Stratum work a Sia-style
   # BLAKE2b ASIC can mine.
   gateway:
-    image: paulscode/datum-blake2b:1.0.13@sha256:a3ae539200decf328ede3a1762706921a2be15d92360c9cf58a7316d3d6490d2
+    image: paulscode/datum-blake2b:1.0.17@sha256:b318dc67bd4ebbe2e336c91582ff3037edd3e9868c1952605fb76aa4982a652e
     restart: unless-stopped
     depends_on: [node]
     stop_grace_period: 30s
