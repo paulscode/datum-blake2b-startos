@@ -111,9 +111,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
     // in init/watchPayoutAddress asks for one and the service does not start.
     POOL_ADDRESS: store?.poolAddress ?? '',
     // A power of two, always. Older gateways rounded a stray value down with a
-    // warning; current ones refuse a non-power-of-two integer outright, which with
-    // config errors now fatal stops the gateway starting. Round it here, the one
-    // place it is written, so a value saved by an older version keeps working.
+    // warning; current ones parse vardiff_min as a difficulty and fail to start on
+    // a bare integer that is not a power of two. Round it here, the one place it is
+    // written, so a value saved by an older version keeps working.
     VARDIFF_MIN: String(floorPowerOfTwo(store?.vardiffMin ?? 64)),
     ADMIN_PASSWORD: store?.adminPassword ?? '',
     // Everything the config actions set, as one JSON object that the entrypoint

@@ -98,7 +98,10 @@
 #     a power of two is fatal. entrypoint.sh writes the exact difficulty string.
 #   - Password difficulty is opt-in, as requested in review of OCEAN #234:
 #     stratum.password_difficulty, off by default. entrypoint.sh turns it on,
-#     since this package has always offered it.
+#     since this package has always offered it. A miner that authorizes before it
+#     subscribes keeps its password difficulty; subscribe used to reset it.
+#   - The clients page names the two classes; it was still indexing upstream's
+#     six names, so every miner's coinbase read "Tiny".
 #
 # VERIFIED: every commit builds and passes --test. Solo on Knots regtest with a
 # GPU standing in for an ASIC: 20 blocks in a minute, all taken by the node.
@@ -108,7 +111,7 @@
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=a42031a2ee18c1abacba791381e526839feabe59
+ARG DATUM_REF=301d5f28d8142d59fb7d2e726f3c99af023ac69d
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

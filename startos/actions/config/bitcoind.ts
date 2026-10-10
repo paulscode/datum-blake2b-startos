@@ -59,7 +59,9 @@ export const bitcoindConfig = sdk.Action.withInput(
     // Earlier versions accepted 1 to 4, which the gateway already ran as 5. Show
     // what it runs, so an old value does not block saving this form.
     const w = (group as any).work_update_seconds
-    return typeof w === 'number' && w < 5 ? { ...group, work_update_seconds: 5 } : group
+    return typeof w === 'number' && w < 5
+      ? { ...group, work_update_seconds: 5 }
+      : group
   },
 
   async ({ effects, input }) => {

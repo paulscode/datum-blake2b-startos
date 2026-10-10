@@ -244,7 +244,8 @@ Rented hashrate is billed by the hour and the ordinary difficulty search wastes
 the first minutes of it. This is a plain password field on every rental service, so
 it works without either side supporting anything new, and a gateway that does not
 understand it simply ignores it. The value is rounded down to a power of two and is
-a floor, not a ceiling.
+a floor, not a ceiling. It is in share difficulty, the number your miner shows, so
+`d=1024` is about 1024 in its log.
 
 ## Changing settings
 

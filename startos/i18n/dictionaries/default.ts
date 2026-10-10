@@ -123,6 +123,7 @@ const dict = {
   'Estimated Hashrate': 119,
   'Estimated hashrate': 120,
   'Could not read the hashrate': 121,
+  'Starting share difficulty, the number your miner shows. Vardiff adapts from here; a low value lets a slow hasher produce shares immediately on connect. Rounded down to a power of two. The dashboard shows it as the full difficulty, 2^32 times larger: 64 appears as 274.9G.': 122,
 } as const
 
 /**

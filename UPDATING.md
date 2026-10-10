@@ -6,7 +6,7 @@ DATUM Gateway is **built from source, from a fork, pinned by commit**. There is 
 
 ```dockerfile
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=a42031a2ee18c1abacba791381e526839feabe59
+ARG DATUM_REF=301d5f28d8142d59fb7d2e726f3c99af023ac69d
 ```
 
 **A commit, not a branch or a tag.** A branch name is a moving target, and this is the one
@@ -16,17 +16,17 @@ it actually built.
 
 ## The branch is layered, and each layer has an upstream
 
-The pin is on `blake2b-full-payout`, built in this order:
+The pin is on `blake2b-full-payout-2`, built in this order:
 
 1. **[CONVOYMining/datum_gateway](https://github.com/CONVOYMining/datum_gateway) `master`**,
    the base. Convoy's pool protocol (the DRS handshake, anti-withholding) lives here,
    and the BLAKE2b pools on this chain require it.
-2. **[iohzrd/datum_gateway](https://github.com/iohzrd/datum_gateway)**: `40cf813`,
-   `7491a50`, `c031568`. Sigop limit, the 164-byte header in the coinbase weight fit,
-   and the 32,000-byte / 1024-output class.
-3. **Ours**: password difficulty (`d=`/`fd=`), empty-work subsidy from the template,
-   Obelisk SC1 Gen 2, the advertised stratum endpoint, the dupe index fix and reject
-   reasons, and the full-template coinbase test.
+2. **The coinbase class**: 32,000 bytes / 1024 outputs, and only two classes (TINY and
+   YUGE). iohzrd's sigop limit and 164-byte header weight fit, and our dupe index fix,
+   are in Convoy's master now and no longer carried.
+3. **Ours**: password difficulty (`d=`/`fd=`, opt-in via `stratum.password_difficulty`),
+   empty-work subsidy from the template, Obelisk SC1 Gen 2, the advertised stratum
+   endpoint, local share reject reasons, and the full-template coinbase test.
 4. **Lazarus's late-coinbaser patch**
    ([AwokenLazarus/Bitcoin](https://github.com/AwokenLazarus/Bitcoin), `lazarus/patches`).
 
@@ -53,7 +53,7 @@ check that would have refused every Obelisk share, with no conflict to flag it.
    silently building something else.
 2. Update `DATUM_REF` in `Dockerfile` to the full 40-character SHA.
 3. **Not in [`datum-sha256-startos`](https://github.com/paulscode/datum-sha256-startos).**
-   That package stays on our OCEAN-based fork (`beb9461`) on purpose: SHA256d miners do
+   That package stays on our OCEAN-based fork (`ad57651`) on purpose: SHA256d miners do
    see the coinbase, so the size classes and fingerprinting matter there, and Convoy's
    BLAKE2b protocol does not.
 4. Rebuild and re-run `--test`, which checks the gateway against Knots' own published

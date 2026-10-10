@@ -11,7 +11,7 @@ What you might notice:
 
 Under the hood: fixes to how threads start and share state, bounds checks on what the pool sends, a validation state that now survives a reconnect to the pool, and a larger stack for every thread. Some of these were rare crashes.
 
-The gateway now refuses to start on a configuration error rather than carrying on with a default. This package writes the configuration itself, so the one setting that could trip it, the minimum difficulty, is rounded to a power of two before it is written, as the gateway used to do on its own. Work Update Seconds accepts 5 or more, the floor the gateway has always enforced; a saved value below that now shows as 5.
+The gateway now reads the minimum difficulty as a full difficulty, and will not start on one that is not a power of two. This package writes that setting itself, rounded down to a power of two as the gateway used to do on its own, so nothing you saved before can stop it starting. The dashboard shows it as the full difficulty: the default of 64 appears as 274.9G. Work Update Seconds accepts 5 or more, the floor the gateway has always enforced; a saved value below that now shows as 5.
 
 The Always Pay Self setting is gone. The gateway never implemented it, and upstream has removed it. Your other settings are kept, and you do not need to reconfigure your miners.`
 

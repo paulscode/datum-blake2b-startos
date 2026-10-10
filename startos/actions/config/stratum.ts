@@ -10,7 +10,7 @@ const inputSpec = InputSpec.of({
   vardiff_min: Value.number({
     name: i18n('Minimum Difficulty'),
     description: i18n(
-      'Starting share difficulty. Vardiff adapts from here; a low value lets a slow hasher produce shares immediately on connect. Rounded down to a power of two.',
+      'Starting share difficulty, the number your miner shows. Vardiff adapts from here; a low value lets a slow hasher produce shares immediately on connect. Rounded down to a power of two. The dashboard shows it as the full difficulty, 2^32 times larger: 64 appears as 274.9G.',
     ),
     required: false,
     default: null,

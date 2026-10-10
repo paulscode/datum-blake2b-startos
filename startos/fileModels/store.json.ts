@@ -65,9 +65,10 @@ const shape = z.object({
           vardiff_quickdiff_count: z.number().int().positive().optional(),
           vardiff_quickdiff_delta: z.number().int().positive().optional(),
           share_stale_seconds: z.number().int().positive().optional(),
-          // fingerprint_miners was here until 1.0.0:53. The gateway no longer has
-          // the option, and zod drops the key from older stores on read, so it
-          // never reaches DATUM_SETTINGS.
+          // fingerprint_miners was here until 1.0.0:53. The option exists in the
+          // gateway again but does nothing for BLAKE2b miners, so it is not
+          // offered; zod drops the key from older stores on read, so it never
+          // reaches DATUM_SETTINGS.
           // 8 or 4. Only written when it is 4: 8 is DATUM's own default, and
           // this package's convention is that unset means "do not write it".
           // The gateway refuses to start on any other value, so the union is
