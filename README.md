@@ -285,7 +285,7 @@ free ones and writes them to `.env`.
 |---|---|---|
 | `poolAddress` | empty | where block rewards go. Set with the **Set Payout Address** action |
 | `adminPassword` | generated on install | gates the dashboard's `/clients`, `/threads` and `/config` pages. Blank turns them off |
-| `vardiffMin` | 64 | starting share difficulty; vardiff adapts from here |
+| `vardiffMin` | 64 | starting share difficulty; vardiff adapts from here. Rounded down to a power of two and written to the gateway as the exact difficulty (`vardiffMin` × 2^32, a quoted decimal), because the gateway refuses to start on a bare integer that is not a power of two |
 
 `poolAddress` is prompted as a **critical task on install**, which blocks the service
 from starting until it is set. There is no safe default: inventing an address would
@@ -652,7 +652,7 @@ the difficulty, the job rate and the chain all at once, so it cannot separate "o
 work is wrong" from "our conditions provoke marginal silicon". Two settings can
 separate them on this chain, one variable at a time:
 
-- **`work_update_seconds`**, default 5, settable 1 to 120. At 60 the 741 non-clean
+- **`work_update_seconds`**, default 5, settable 5 to 120 (the gateway raises anything lower to 5). At 60 the 741 non-clean
   refreshes drop to roughly 35 while the 350 block-driven ones stay. A sharp fall
   in errors points at reload churn.
 - **`vardiff_min`**. Raising it means fewer, harder shares, so fewer nonce returns

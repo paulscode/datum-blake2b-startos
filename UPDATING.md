@@ -6,7 +6,7 @@ DATUM Gateway is **built from source, from a fork, pinned by commit**. There is 
 
 ```dockerfile
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=79595cede73bd9021a6e9fc111736e5f504f9b9f
+ARG DATUM_REF=a42031a2ee18c1abacba791381e526839feabe59
 ```
 
 **A commit, not a branch or a tag.** A branch name is a moving target, and this is the one

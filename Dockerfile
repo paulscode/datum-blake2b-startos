@@ -78,10 +78,37 @@
 # its split arrived (108 outputs, about 3.5 KB, well inside the class). The count
 # written into the coinbase is not visible from outside, because the miner only
 # ever sees a commitment; the test above is what measures it.
+#
+# blake2b-full-payout-2 (the pin below) is the same branch again, moved onto
+# Convoy master b0c5f58: about 80 upstream commits, among them our dupe fix
+# (Convoy #18), iohzrd's weight and sigop fixes, AlphaMine's coinbaser timeout
+# fix, Luke's struct buf API and byte-built coinbase refactors, and the move of
+# difficulty to SI units with config errors made fatal. What changed in ours:
+#   - Two coinbase classes rather than six. Every miner is served the largest,
+#     and the job table is static: 256 jobs times every class, memset whole on
+#     reuse. Six classes at 32 KB each would have kept about 200 MB resident for
+#     buffers nothing reads. TINY (subsidy only) and YUGE remain.
+#   - The API pages are rewritten for struct buf; the reject reasons and the
+#     endpoint advertisement came across as buf_printf.
+#   - Upstream's own "never generated" check refuses coinb1_len < 2, so the
+#     Obelisk tests build a 2-byte coinb1 and their nonces were re-mined.
+#   - The late-coinbaser fix keeps AlphaMine's timeout, but for solo only:
+#     pooled, the answer while the split is late stays the subsidy-only job.
+#   - vardiff_min is now parsed as a difficulty, and a bare integer that is not
+#     a power of two is fatal. entrypoint.sh writes the exact difficulty string.
+#   - Password difficulty is opt-in, as requested in review of OCEAN #234:
+#     stratum.password_difficulty, off by default. entrypoint.sh turns it on,
+#     since this package has always offered it.
+#
+# VERIFIED: every commit builds and passes --test. Solo on Knots regtest with a
+# GPU standing in for an ASIC: 20 blocks in a minute, all taken by the node.
+# Pooled from the synced mainnet node: the Convoy handshake completes and its
+# split arrives (17 outputs, the same as the shipped gateway receives today);
+# Lazarus's split arrives at 113 outputs and is built in full.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=79595cede73bd9021a6e9fc111736e5f504f9b9f
+ARG DATUM_REF=a42031a2ee18c1abacba791381e526839feabe59
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

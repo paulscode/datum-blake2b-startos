@@ -112,6 +112,23 @@ STRATUM_PORT="${STRATUM_PORT:-23334}"
 API_PORT="${API_PORT:-7152}"
 VARDIFF_MIN="${VARDIFF_MIN:-1024}"
 
+# The gateway refuses to start on a vardiff_min that is not a power of two, and
+# warns on every start about one written as a bare integer, which it reads in the
+# old units. So round down to a power of two here, whatever the form asked for,
+# and write the exact difficulty as a decimal string: that integer times 2^32.
+case "$VARDIFF_MIN" in ''|*[!0-9]*) VARDIFF_MIN=1024 ;; esac
+[ "$VARDIFF_MIN" -ge 1 ] || VARDIFF_MIN=1
+[ "$VARDIFF_MIN" -le 1073741824 ] || VARDIFF_MIN=1073741824
+_pot=1
+while [ $((_pot * 2)) -le "$VARDIFF_MIN" ]; do _pot=$((_pot * 2)); done
+VARDIFF_MIN_DIFF=$((_pot << 32))
+
+# Reading a difficulty request from the Stratum password (d=N, fd=N) is opt-in in
+# the gateway, off unless stratum.password_difficulty is set, because upstream
+# cannot know what miners already put in that field. This package has offered it
+# since it was written and renters depend on it, so it stays on. Not reserved
+# below: DATUM_SETTINGS can still turn it off.
+
 # The label this gateway puts in the coinbase of blocks it builds. Free text, and
 # entirely the operator's to choose: the Mining config action sets it, and DATUM's
 # own default applies when they have not.
@@ -165,7 +182,8 @@ cat > "$CONF" <<JSON
 	},
 	"stratum": {
 		"listen_port": ${STRATUM_PORT},
-		"vardiff_min": ${VARDIFF_MIN}
+		"vardiff_min": "${VARDIFF_MIN_DIFF}",
+		"password_difficulty": true
 	},
 	"mining": {
 		"pool_address": "${POOL_ADDRESS}",

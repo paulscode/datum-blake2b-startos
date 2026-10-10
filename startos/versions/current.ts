@@ -1,21 +1,22 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
-const notes = `Pooled mining now puts the pool's whole payout list in the blocks your gateway finds. Every earlier version of this app put at most about 17 pool payouts in a block's coinbase; everyone else in the window was left out of that block and had to be paid later by the pool as a make-good.
+const notes = `Moves the gateway onto CONVOY's current code: about 80 upstream changes since the last version, most of them fixes to how the gateway runs rather than what it builds. The full pool payout list from 1.0.0:53 is carried over unchanged.
 
-The cause was a size limit meant for SHA256 mining hardware, which rebuilds the coinbase itself and can only take so much. The gateway applied a 750-byte class to any miner it did not recognise, which is every BLAKE2b miner. BLAKE2b miners never see the coinbase, so the limit protected nothing. The coinbase can now hold up to 1024 payouts, sized to the room the block has left. At the node's default block size there is room for about 900, more than twice the payout list of the largest pool on this chain today.
+What you might notice:
 
-Also from upstream work by CONVOY, iohzrd and Lazarus Pool:
+- Difficulty is shown with SI units on the dashboard, and is correct for BLAKE2b work. It used to be shown in SHA256 terms.
+- A miner that submits work before subscribing, or for a coinbase the gateway never built, is now refused with a reason rather than having the share looked at.
+- When the node answers a found block with "duplicate", the gateway now counts the block as accepted. It already was; the gateway just said otherwise.
+- The duplicate share check now keys on the share itself and no longer forgets entries early when Work Update Seconds is long.
 
-- A coinbase grown to fill a nearly full block is now measured against the BLAKE2b header, which is larger than the old one. Without this, a large coinbase could push a full block over the weight limit and the network would reject it.
-- While pooled, the gateway no longer hands out work whose coinbase pays only the pool. That used to happen for a moment after each new block, and whenever the pool was slow to send its payout list.
-- Payouts are kept within the block's signature operation limit.
+Under the hood: fixes to how threads start and share state, bounds checks on what the pool sends, a validation state that now survives a reconnect to the pool, and a larger stack for every thread. Some of these were rare crashes.
 
-The Fingerprint Miners setting is gone, because the gateway no longer has it. Your other settings are kept, and you do not need to reconfigure your miners.
+The gateway now refuses to start on a configuration error rather than carrying on with a default. This package writes the configuration itself, so the one setting that could trip it, the minimum difficulty, is rounded to a power of two before it is written, as the gateway used to do on its own. Work Update Seconds accepts 5 or more, the floor the gateway has always enforced; a saved value below that now shows as 5.
 
-Solo mining is unchanged.`
+The Always Pay Self setting is gone. The gateway never implemented it, and upstream has removed it. Your other settings are kept, and you do not need to reconfigure your miners.`
 
 export const current = VersionInfo.of({
-  version: '1.0.0:53',
+  version: '1.0.0:54',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -24,9 +25,9 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. A stored fingerprint_miners from before is dropped by
-    // the store schema on read, so it never reaches the gateway, and the gateway
-    // ignores keys it does not know in any case.
+    // Nothing to migrate. A stored always_pay_self is left in place until the
+    // DATUM Pool form is next saved, which replaces the group without it; the
+    // gateway ignores keys it does not know in the meantime.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },

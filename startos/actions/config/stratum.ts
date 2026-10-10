@@ -10,7 +10,7 @@ const inputSpec = InputSpec.of({
   vardiff_min: Value.number({
     name: i18n('Minimum Difficulty'),
     description: i18n(
-      'Starting share difficulty. Vardiff adapts from here; a low value lets a slow hasher produce shares immediately on connect.',
+      'Starting share difficulty. Vardiff adapts from here; a low value lets a slow hasher produce shares immediately on connect. Rounded down to a power of two.',
     ),
     required: false,
     default: null,
@@ -112,7 +112,7 @@ const inputSpec = InputSpec.of({
   trust_proxy: Value.number({
     name: i18n('Trust Proxy'),
     description: i18n(
-      'Trust this many proxy hops when reading a miner’s address, for setups behind a reverse proxy.',
+      'Accept the PROXY protocol from miners’ connections, trusting this many levels of proxies when reading a miner’s address. Leave empty to keep it off.',
     ),
     required: false,
     default: null,

@@ -9,6 +9,10 @@ import {
 import { sdk } from './sdk'
 import { dataDir, knotsMountpoint, stratumPort, uiPort } from './utils'
 
+/** The largest power of two not above `n` (and at least 1). */
+const floorPowerOfTwo = (n: number) =>
+  2 ** Math.floor(Math.log2(Math.max(1, Math.floor(n))))
+
 // The node's stable contract. Its *internal* port and host id are what may be
 // relied on; its external port is assigned at runtime and must never be assumed.
 const KNOTS_PKG = 'knots-blake2b'
@@ -106,7 +110,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
     // rewards somewhere they do not control, so empty means the critical task
     // in init/watchPayoutAddress asks for one and the service does not start.
     POOL_ADDRESS: store?.poolAddress ?? '',
-    VARDIFF_MIN: String(store?.vardiffMin ?? 64),
+    // A power of two, always. Older gateways rounded a stray value down with a
+    // warning; current ones refuse a non-power-of-two integer outright, which with
+    // config errors now fatal stops the gateway starting. Round it here, the one
+    // place it is written, so a value saved by an older version keeps working.
+    VARDIFF_MIN: String(floorPowerOfTwo(store?.vardiffMin ?? 64)),
     ADMIN_PASSWORD: store?.adminPassword ?? '',
     // Everything the config actions set, as one JSON object that the entrypoint
     // merges over the config it generates. One variable rather than forty keeps

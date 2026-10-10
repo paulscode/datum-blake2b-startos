@@ -13,12 +13,14 @@ const inputSpec = InputSpec.of({
   work_update_seconds: Value.number({
     name: i18n('Work Update Seconds'),
     description: i18n(
-      'How often to check the node for a new block template, in seconds.',
+      'Seconds between routine work updates sent to miners. A new block is picked up immediately regardless. The gateway enforces at least 5.',
     ),
     required: false,
     default: null,
     placeholder: '5',
-    min: 1,
+    // DATUM raises anything under 5 to 5 (datum_conf.c), so a lower value here
+    // was a setting that silently did nothing.
+    min: 5,
     max: 120,
     integer: true,
     units: 's',
@@ -52,7 +54,13 @@ export const bitcoindConfig = sdk.Action.withInput(
 
   inputSpec,
 
-  async ({ effects }) => readGroup(effects, 'bitcoind'),
+  async ({ effects }) => {
+    const group = await readGroup(effects, 'bitcoind')
+    // Earlier versions accepted 1 to 4, which the gateway already ran as 5. Show
+    // what it runs, so an old value does not block saving this form.
+    const w = (group as any).work_update_seconds
+    return typeof w === 'number' && w < 5 ? { ...group, work_update_seconds: 5 } : group
+  },
 
   async ({ effects, input }) => {
     await assertTimingsAgree(effects, 'bitcoind', input)

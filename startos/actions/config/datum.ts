@@ -49,13 +49,6 @@ const inputSpec = InputSpec.of({
     description: i18n('Send the whole username, not just the worker part.'),
     default: true,
   }),
-  always_pay_self: Value.toggle({
-    name: i18n('Always Pay Self'),
-    description: i18n(
-      'Pay block rewards to your own address rather than the pool’s.',
-    ),
-    default: true,
-  }),
   pooled_mining_only: Value.toggle({
     name: i18n('Pooled Mining Only'),
     description: i18n(
