@@ -10,20 +10,20 @@ import { isValidAddress } from '../payoutAddress'
 const storePath = '/media/startos/volumes/main/store.json'
 
 const notes =
-  'Collapses the payout address back to a single value, and refuses to carry a '  +
-  'test-chain address onto mainnet. '  +
+  'Collapses the payout address back to a single value, and refuses to carry a ' +
+  'test-chain address onto mainnet. ' +
   ' ' +
-  'This service briefly kept one payout address per chain, from when it could '  +
-  'be pointed at a private test chain as well as at mainnet. It serves one '  +
-  'chain now, so the record collapses to the single address you most recently '  +
-  'set. '  +
+  'This service briefly kept one payout address per chain, from when it could ' +
+  'be pointed at a private test chain as well as at mainnet. It serves one ' +
+  'chain now, so the record collapses to the single address you most recently ' +
+  'set. ' +
   ' ' +
-  'An address left over from before that split is only carried forward if it '  +
-  'stands up as a mainnet address on its own. A test-network address would not '  +
-  'be rejected by anything downstream: DATUM does not care which network an '  +
-  'address came from, so it would build a valid mainnet output paying a key '  +
-  'from a wallet you do not have, and nothing would report it. Where that is '  +
-  'the risk the address is cleared and you are asked for a new one before the '  +
+  'An address left over from before that split is only carried forward if it ' +
+  'stands up as a mainnet address on its own. A test-network address would not ' +
+  'be rejected by anything downstream: DATUM does not care which network an ' +
+  'address came from, so it would build a valid mainnet output paying a key ' +
+  'from a wallet you do not have, and nothing would report it. Where that is ' +
+  'the risk the address is cleared and you are asked for a new one before the ' +
   'gateway starts.'
 
 export const v1_0_0_43 = VersionInfo.of({
