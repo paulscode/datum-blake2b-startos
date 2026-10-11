@@ -1,7 +1,7 @@
 import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
-const shape = z.object({
+const shape = z.looseObject({
   // Where block rewards go. There is no safe default: an address we invented
   // would silently send the user's coins somewhere they do not control, so empty
   // means the service refuses to run and the critical task asks for one.
@@ -48,15 +48,15 @@ const shape = z.object({
   // `listen_port` and `modify_conf`. Exposing them would let a user break the
   // package's own wiring.
   config: z
-    .object({
+    .looseObject({
       bitcoind: z
-        .object({
+        .looseObject({
           work_update_seconds: z.number().int().positive().optional(),
           notify_fallback: z.boolean().optional(),
         })
         .catch({}),
       stratum: z
-        .object({
+        .looseObject({
           max_clients_per_thread: z.number().int().positive().optional(),
           max_threads: z.number().int().positive().optional(),
           max_clients: z.number().int().positive().optional(),
@@ -81,19 +81,19 @@ const shape = z.object({
         })
         .catch({}),
       mining: z
-        .object({
+        .looseObject({
           coinbase_tag_primary: z.string().optional(),
           coinbase_tag_secondary: z.string().optional(),
           coinbase_unique_id: z.number().int().min(1).max(65535).optional(),
         })
         .catch({}),
       api: z
-        .object({
+        .looseObject({
           allow_insecure_auth: z.boolean().optional(),
         })
         .catch({}),
       logger: z
-        .object({
+        .looseObject({
           log_to_file: z.boolean().optional(),
           log_rotate_daily: z.boolean().optional(),
           log_calling_function: z.boolean().optional(),
@@ -102,7 +102,7 @@ const shape = z.object({
         })
         .catch({}),
       datum: z
-        .object({
+        .looseObject({
           pool_host: z.string().optional(),
           pool_port: z.number().int().positive().optional(),
           pool_pubkey: z.string().optional(),

@@ -1,6 +1,5 @@
 import { setupManifest } from '@start9labs/start-sdk'
 import { long, short } from './i18n'
-import { knotsDependencyDescription } from './i18n-dependency'
 
 export const manifest = setupManifest({
   // Deliberately NOT `datum`: that is the official Datum Gateway package, and
@@ -35,22 +34,6 @@ export const manifest = setupManifest({
         },
       },
       arch: ['x86_64', 'aarch64'],
-    },
-  },
-  dependencies: {
-    // MUST be our node, not the official `bitcoind`. Depending on `bitcoind`
-    // would bind this gateway to the user's mainnet node and generate templates
-    // for the wrong chain. This is a correctness requirement, not a naming one.
-    'knots-blake2b': {
-      description: knotsDependencyDescription,
-      optional: false,
-      metadata: {
-        title: 'Bitcoin Knots (BLAKE2b) Companion',
-        // A dependency icon is an absolute URL into the dependency's repo, not a
-        // magic filename, so PNG is fine (E9). It is fetched by the StartOS UI,
-        // which means the packaging repo has to be public for it to render.
-        icon: 'https://raw.githubusercontent.com/paulscode/knots-blake2b-startos/4dcb43811bf695ce6631e3e43876b41db52300ed/dep-icon.png',
-      },
     },
   },
 })

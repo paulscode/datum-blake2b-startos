@@ -1,6 +1,31 @@
+import { knotsDependencyDescription } from './manifest/i18n-dependency'
 import { sdk } from './sdk'
 
-export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
+// MUST be our node, not the official `bitcoind`. Depending on `bitcoind`
+// would bind this gateway to the user's mainnet node and generate templates
+// for the wrong chain. This is a correctness requirement, not a naming one.
+const knots = sdk.Dependency.required('knots-blake2b', {
+  description: knotsDependencyDescription,
+  metadata: {
+    title: 'Bitcoin Knots (BLAKE2b) Companion',
+    // A dependency icon is an absolute URL into the dependency's repo, not a
+    // magic filename, so PNG is fine (E9). It is fetched by the StartOS UI,
+    // which means the packaging repo has to be public for it to render.
+    icon: 'https://raw.githubusercontent.com/paulscode/knots-blake2b-startos/4dcb43811bf695ce6631e3e43876b41db52300ed/dep-icon.png',
+  },
+  // 'running' rather than 'exists': the gateway needs live templates, not just
+  // an installed node. This drives the warning UI only; it does not gate
+  // startup.
+  kind: 'running',
+  // Raised from '>=1.0.0' for the long coinbase maturity rule. The gateway
+  // takes its transaction list verbatim from the node's getblocktemplate and
+  // has no selection or validation of its own, so a node that has not taken
+  // the rule will hand it transactions that became invalid at height 973440
+  // and every block it builds from them is rejected. Nothing in the gateway
+  // can detect that, which is why the pairing is stated here instead.
+  versionRange: '>=1.0.0:36',
+  healthChecks: ['node'],
+}).withInit(async (effects) => {
   // Clear the two tasks this service used to create against the node.
   //
   // StartOS does not garbage-collect tasks, so dropping a `createTask` call
@@ -40,25 +65,6 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   //
   // The node's Get Address action still exists and still works for anyone who
   // wants it. This package simply no longer points at it.
-
-  return {
-    // Our node, never the official `bitcoind`. Depending on `bitcoind` would bind
-    // this gateway to the user's mainnet node and generate templates for the
-    // wrong chain, which a Sia miner cannot mine and the node would reject.
-    //
-    // 'running' rather than 'exists': the gateway needs live templates, not just
-    // an installed node. This drives the warning UI only; it does not gate
-    // startup.
-    'knots-blake2b': {
-      kind: 'running',
-      // Raised from '>=1.0.0' for the long coinbase maturity rule. The gateway
-      // takes its transaction list verbatim from the node's getblocktemplate and
-      // has no selection or validation of its own, so a node that has not taken
-      // the rule will hand it transactions that became invalid at height 973440
-      // and every block it builds from them is rejected. Nothing in the gateway
-      // can detect that, which is why the pairing is stated here instead.
-      versionRange: '>=1.0.0:36',
-      healthChecks: ['node'],
-    },
-  }
 })
+
+export const dependencies = sdk.Dependencies.of().addDependency(knots)
