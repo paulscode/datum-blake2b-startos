@@ -423,7 +423,8 @@ an unchanged version as a no-op.
 
 ## Status
 
-Builds, installs and runs on StartOS 0.4.0.1. **Verified end to end from another
+Releases after 1.0.0:54 require StartOS 0.4.0.2 (the manifest declares it); everything
+below was verified on 0.4.0.1. **Verified end to end from another
 machine on the LAN**: a CPU miner connected over stratum, was served BLAKE2b work,
 and the node accepted the resulting blocks with no `high-hash` rejections.
 
