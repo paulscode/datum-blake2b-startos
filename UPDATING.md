@@ -33,6 +33,9 @@ The pin is on `blake2b-full-payout-3`, built in this order:
    its lock before sending the request. The base stays at `b0c5f58`; Convoy's later
    commits up to v0.5.0-beta are reexec and restart warnings we do not need. Drop this
    layer on the next rebase past `bfd5108`.
+6. **Ours, on top**: `1ba0fe6`, the coinbaser thread takes each new job's
+   `need_coinbaser` flag both ways, so a failed fetch's retry is not carried over to a
+   job that needs no coinbaser. It fixes an interaction with layer 4 and stays with it.
 
 **What to check on a bump:**
 

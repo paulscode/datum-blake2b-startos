@@ -109,8 +109,8 @@
 # split arrives (17 outputs, the same as the shipped gateway receives today);
 # Lazarus's split arrives at 113 outputs and is built in full.
 #
-# blake2b-full-payout-3 (the pin below) is blake2b-full-payout-2 plus one
-# cherry-pick from Convoy master, bfd5108 (Convoy #9): the coinbaser fetch takes
+# blake2b-full-payout-3 (the pin below) is blake2b-full-payout-2 plus two
+# commits. The first is a cherry-pick from Convoy master, bfd5108 (Convoy #9): the coinbaser fetch takes
 # its lock before sending the request, and waits for the reply to this job's
 # value. A split that arrived before the fetch was waiting used to be missed,
 # and the fetch sat out its 5-second timeout. With the Lazarus retry already
@@ -118,11 +118,15 @@
 # went out with no split. Convoy's other commits up to v0.5.0-beta (69c61a9)
 # are reexec and restart warnings for its own config page and are not taken.
 # It applied without conflict and passes --test under gcc and clang, also with
-# ASan/UBSan.
+# ASan/UBSan. The second (1ba0fe6) is ours: the coinbaser thread takes each new
+# job's need_coinbaser flag both ways. With the Lazarus retry, a failed fetch
+# left the flag set into the next job, so an EMPTY_PLUS job published on a new
+# block could get a split fetched for it and its coinbases rewritten while
+# miners were hashing them.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=e192f8bd700ce2210ffd62a2d84e47c97237313d
+ARG DATUM_REF=1ba0fe63686d8174c57beb7e9230fc6139022ec2
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \
