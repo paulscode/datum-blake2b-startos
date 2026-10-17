@@ -79,7 +79,7 @@
 # written into the coinbase is not visible from outside, because the miner only
 # ever sees a commitment; the test above is what measures it.
 #
-# blake2b-full-payout-2 (the pin below) is the same branch again, moved onto
+# blake2b-full-payout-2 is the same branch again, moved onto
 # Convoy master b0c5f58: about 80 upstream commits, among them our dupe fix
 # (Convoy #18), iohzrd's weight and sigop fixes, AlphaMine's coinbaser timeout
 # fix, Luke's struct buf API and byte-built coinbase refactors, and the move of
@@ -108,10 +108,21 @@
 # Pooled from the synced mainnet node: the Convoy handshake completes and its
 # split arrives (17 outputs, the same as the shipped gateway receives today);
 # Lazarus's split arrives at 113 outputs and is built in full.
+#
+# blake2b-full-payout-3 (the pin below) is blake2b-full-payout-2 plus one
+# cherry-pick from Convoy master, bfd5108 (Convoy #9): the coinbaser fetch takes
+# its lock before sending the request, and waits for the reply to this job's
+# value. A split that arrived before the fetch was waiting used to be missed,
+# and the fetch sat out its 5-second timeout. With the Lazarus retry already
+# on the branch, the job then waited for a second fetch; without it, the job
+# went out with no split. Convoy's other commits up to v0.5.0-beta (69c61a9)
+# are reexec and restart warnings for its own config page and are not taken.
+# It applied without conflict and passes --test under gcc and clang, also with
+# ASan/UBSan.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=301d5f28d8142d59fb7d2e726f3c99af023ac69d
+ARG DATUM_REF=e192f8bd700ce2210ffd62a2d84e47c97237313d
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

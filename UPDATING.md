@@ -6,7 +6,7 @@ DATUM Gateway is **built from source, from a fork, pinned by commit**. There is 
 
 ```dockerfile
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=301d5f28d8142d59fb7d2e726f3c99af023ac69d
+ARG DATUM_REF=e192f8bd700ce2210ffd62a2d84e47c97237313d
 ```
 
 **A commit, not a branch or a tag.** A branch name is a moving target, and this is the one
@@ -16,7 +16,7 @@ it actually built.
 
 ## The branch is layered, and each layer has an upstream
 
-The pin is on `blake2b-full-payout-2`, built in this order:
+The pin is on `blake2b-full-payout-3`, built in this order:
 
 1. **[CONVOYMining/datum_gateway](https://github.com/CONVOYMining/datum_gateway) `master`**,
    the base. Convoy's pool protocol (the DRS handshake, anti-withholding) lives here,
@@ -29,6 +29,10 @@ The pin is on `blake2b-full-payout-2`, built in this order:
    endpoint, local share reject reasons, and the full-template coinbase test.
 4. **Lazarus's late-coinbaser patch**
    ([AwokenLazarus/Bitcoin](https://github.com/AwokenLazarus/Bitcoin), `lazarus/patches`).
+5. **Cherry-picked from Convoy master**: `bfd5108` (Convoy #9), the coinbaser fetch takes
+   its lock before sending the request. The base stays at `b0c5f58`; Convoy's later
+   commits up to v0.5.0-beta are reexec and restart warnings we do not need. Drop this
+   layer on the next rebase past `bfd5108`.
 
 **What to check on a bump:**
 
