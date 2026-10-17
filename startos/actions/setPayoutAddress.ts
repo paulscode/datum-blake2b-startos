@@ -110,6 +110,7 @@ export const setPayoutAddress = sdk.Action.withInput(
         masked: false,
         copyable: true,
         qr: true,
+        launchable: false,
       },
     }
   },

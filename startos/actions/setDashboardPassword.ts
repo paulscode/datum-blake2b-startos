@@ -86,6 +86,7 @@ export const setDashboardPassword = sdk.Action.withInput(
             masked: false,
             copyable: true,
             qr: false,
+            launchable: false,
           },
           {
             type: 'single' as const,
@@ -95,6 +96,7 @@ export const setDashboardPassword = sdk.Action.withInput(
             masked: !!password,
             copyable: !!password,
             qr: false,
+            launchable: false,
           },
         ],
       },
