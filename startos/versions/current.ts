@@ -1,17 +1,17 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Rebuilt on version 3 of the StartOS packaging SDK, which needs StartOS ' +
-  '0.4.0.2. Nothing you have set changes. ' +
-  'When the pool sent its payout split before the gateway was ready for it, ' +
-  'the gateway used to miss it and wait out a 5-second timeout before asking ' +
-  'again; it now catches the early reply. ' +
-  'After a pool reply was missed, the gateway could also fetch a split for ' +
-  'the empty job sent on a new block and change that job while miners were ' +
-  'working on it; a block found then would have been lost. It no longer does.'
+  "The gateway is now built on CONVOY's current v0.5.0 beta and reports " +
+  'that version, so Lazarus no longer lists it as out of date. Your payout ' +
+  'settings, the full pool payout list and BLAKE2b support are unchanged. ' +
+  "On the gateway's Config page, changing the Extranonce2 size is now " +
+  'marked as needing a restart. Uses version 3.1.0 of the packaging SDK. ' +
+  'From 1.0.0:56: the gateway no longer misses a payout split the pool sends ' +
+  'before it is ready, and no longer changes the empty job sent on a new ' +
+  'block while miners are working on it.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:56',
+  version: '1.0.0:57',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
