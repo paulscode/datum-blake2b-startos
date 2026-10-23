@@ -123,10 +123,24 @@
 # left the flag set into the next job, so an EMPTY_PLUS job published on a new
 # block could get a split fetched for it and its coinbases rewritten while
 # miners were hashing them.
+#
+# blake2b-full-payout-4 (the pin below) is blake2b-full-payout-3 rebased onto
+# Convoy v0.5.0beta (69c61a9), plus two commits. Lazarus's gateway list and MCP
+# now flag every v0.4.1-beta build as out of date (AwokenLazarus/Bitcoin
+# 98da56f, 2026-10-19), and -3 reported v0.4.1-beta. The rebase brings in the
+# reexec and restart-warning commits skipped in -3; they matter on Umbrel,
+# where modify_conf is on, and are inert here, where it is off. bfd5108 drops
+# out as already upstream. One conflict, in datum_api.c: the Extranonce2 size
+# setting now goes through datum_api_config_require_restart like Convoy's own
+# restart-required settings, and the Config page marks it restart-on-save. The
+# other added commit makes the ENABLE_API=OFF build link (a test called a
+# dashboard function). Every commit builds and passes --test with gcc
+# -Wall -Werror; the head also under clang, -DDATUM_API_FOR_UMBREL, no-API and
+# ASan+UBSan with gcc and clang. Our other commits are unchanged (range-diff).
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=1ba0fe63686d8174c57beb7e9230fc6139022ec2
+ARG DATUM_REF=299802934ac5811c1fd42a53c651ebc28f278b76
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

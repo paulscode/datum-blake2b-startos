@@ -6,7 +6,7 @@ DATUM Gateway is **built from source, from a fork, pinned by commit**. There is 
 
 ```dockerfile
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=e192f8bd700ce2210ffd62a2d84e47c97237313d
+ARG DATUM_REF=299802934ac5811c1fd42a53c651ebc28f278b76
 ```
 
 **A commit, not a branch or a tag.** A branch name is a moving target, and this is the one
@@ -16,10 +16,10 @@ it actually built.
 
 ## The branch is layered, and each layer has an upstream
 
-The pin is on `blake2b-full-payout-3`, built in this order:
+The pin is on `blake2b-full-payout-4`, built in this order:
 
 1. **[CONVOYMining/datum_gateway](https://github.com/CONVOYMining/datum_gateway) `master`**,
-   the base. Convoy's pool protocol (the DRS handshake, anti-withholding) lives here,
+   the base, at v0.5.0beta (`69c61a9`). Convoy's pool protocol (the DRS handshake, anti-withholding) lives here,
    and the BLAKE2b pools on this chain require it.
 2. **The coinbase class**: 32,000 bytes / 1024 outputs, and only two classes (TINY and
    YUGE). iohzrd's sigop limit and 164-byte header weight fit, and our dupe index fix,
@@ -29,13 +29,15 @@ The pin is on `blake2b-full-payout-3`, built in this order:
    endpoint, local share reject reasons, and the full-template coinbase test.
 4. **Lazarus's late-coinbaser patch**
    ([AwokenLazarus/Bitcoin](https://github.com/AwokenLazarus/Bitcoin), `lazarus/patches`).
-5. **Cherry-picked from Convoy master**: `bfd5108` (Convoy #9), the coinbaser fetch takes
-   its lock before sending the request. The base stays at `b0c5f58`; Convoy's later
-   commits up to v0.5.0-beta are reexec and restart warnings we do not need. Drop this
-   layer on the next rebase past `bfd5108`.
-6. **Ours, on top**: `1ba0fe6`, the coinbaser thread takes each new job's
-   `need_coinbaser` flag both ways, so a failed fetch's retry is not carried over to a
-   job that needs no coinbaser. It fixes an interaction with layer 4 and stays with it.
+5. **Ours, on top**: the coinbaser thread takes each new job's `need_coinbaser` flag
+   both ways, so a failed fetch's retry is not carried over to a job that needs no
+   coinbaser. It fixes an interaction with layer 4 and stays with it. Then two small
+   ones from the v0.5.0beta rebase: the reject reason tests link without the API, and
+   the Config page marks Extranonce2 size restart-on-save.
+
+`-3` cherry-picked `bfd5108` (Convoy #9) onto a `b0c5f58` base; that is in v0.5.0beta
+now. The version string matters outside this repo: Lazarus's gateway list and MCP flag
+every v0.4.1-beta build as out of date.
 
 **What to check on a bump:**
 
