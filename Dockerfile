@@ -137,10 +137,13 @@
 # dashboard function). Every commit builds and passes --test with gcc
 # -Wall -Werror; the head also under clang, -DDATUM_API_FOR_UMBREL, no-API and
 # ASan+UBSan with gcc and clang. Our other commits are unchanged (range-diff).
+# A third added commit fixes a Convoy test that failed only in the emulated
+# arm64 build: it compared against stat("/proc/self/exe"), which under QEMU
+# describes the emulator, not the gateway.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=299802934ac5811c1fd42a53c651ebc28f278b76
+ARG DATUM_REF=832ad3940b986fbc69b6a3a1d43f0c4bc7cf99bb
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \
