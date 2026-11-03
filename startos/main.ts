@@ -1,4 +1,4 @@
-import { FileHelper } from '@start9labs/start-sdk'
+import { FileHelper, utils } from '@start9labs/start-sdk'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { manifest as knotsManifest } from 'knots-blake2b-startos/startos/manifest'
@@ -57,6 +57,19 @@ export const main = sdk.setupMain(async ({ effects }) => {
       ssl: false,
     })
     .const()
+
+  // Start again whenever the node does. The mount below is made once, of the
+  // node's volume directory as it is now. A failed install of the node puts
+  // its volume back by renaming the backup into place, and the mount keeps
+  // the directory it was made from, so the cookie read through it never
+  // changes again: the gateway dials with stale credentials and every
+  // template fetch fails, silently, until something rebuilds this. Only the
+  // start time is watched, not health, which changes far more often.
+  await utils.Watchable.combine(
+    effects,
+    [sdk.getStatus(effects, { packageId: KNOTS_PKG })],
+    ([status]) => status?.started ?? null,
+  ).const()
 
   const subcontainer = await sdk.SubContainer.eager(
     effects,
