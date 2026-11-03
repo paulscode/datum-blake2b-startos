@@ -64,11 +64,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // the directory it was made from, so the cookie read through it never
   // changes again: the gateway dials with stale credentials and every
   // template fetch fails, silently, until something rebuilds this. Only the
-  // start time is watched, not health, which changes far more often.
+  // start time is watched, not health, which changes far more often, and a
+  // stop is not a change: restarting while the node is down would only have
+  // the gateway wait for it and give up, over and over.
   await utils.Watchable.combine(
     effects,
     [sdk.getStatus(effects, { packageId: KNOTS_PKG })],
     ([status]) => status?.started ?? null,
+    (prev, next) => next === null || prev === next,
   ).const()
 
   const subcontainer = await sdk.SubContainer.eager(
