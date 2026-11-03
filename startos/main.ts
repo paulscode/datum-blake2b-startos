@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { FileHelper, utils } from '@start9labs/start-sdk'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
@@ -42,6 +43,58 @@ async function scrape(
   }
 }
 
+// How long a node that says its RPC is ready may take to show its cookie
+// through the mount.
+const COOKIE_GRACE_MS = 30_000
+
+function watchForStaleMount(
+  effects: Parameters<Parameters<typeof sdk.setupMain>[0]>[0]['effects'],
+  cookiePath: string,
+  seen: string | null,
+) {
+  let checked: string | null | undefined
+  utils.Watchable.combine(
+    effects,
+    [sdk.getStatus(effects, { packageId: KNOTS_PKG })],
+    ([status]) => ({
+      started: status?.started ?? null,
+      ready: status?.health?.node?.result === 'success',
+    }),
+    (a, b) => a.started === b.started && a.ready === b.ready,
+  ).onChange(async (now) => {
+    if (checked === undefined) {
+      checked = now?.started ?? null
+      return { cancel: false }
+    }
+    if (!now?.started || !now.ready || now.started === checked)
+      return { cancel: false }
+
+    await new Promise((resolve) => setTimeout(resolve, COOKIE_GRACE_MS))
+    if (!effects.isInContext) return { cancel: true }
+
+    const cookie = await readFile(cookiePath, 'utf8').catch(() => null)
+    if (cookie && cookie !== seen) {
+      checked = now.started
+      return { cancel: false }
+    }
+    const again = await effects.getStatus({ packageId: KNOTS_PKG })
+    if (
+      again?.started !== now.started ||
+      again?.health?.node?.result !== 'success'
+    )
+      return { cancel: false }
+
+    console.info(
+      `${KNOTS_PKG} started at ${now.started} and its RPC is ready, but its ` +
+        'new RPC cookie has not reached the gateway; restarting to mount ' +
+        'its data again',
+    )
+    await effects.restart()
+
+    return { cancel: true }
+  })
+}
+
 export const main = sdk.setupMain(async ({ effects }) => {
   console.info(i18n('Starting Datum Gateway (BLAKE2b) Companion'))
 
@@ -57,22 +110,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
       ssl: false,
     })
     .const()
-
-  // Start again whenever the node does. The mount below is made once, of the
-  // node's volume directory as it is now. A failed install of the node puts
-  // its volume back by renaming the backup into place, and the mount keeps
-  // the directory it was made from, so the cookie read through it never
-  // changes again: the gateway dials with stale credentials and every
-  // template fetch fails, silently, until something rebuilds this. Only the
-  // start time is watched, not health, which changes far more often, and a
-  // stop is not a change: restarting while the node is down would only have
-  // the gateway wait for it and give up, over and over.
-  await utils.Watchable.combine(
-    effects,
-    [sdk.getStatus(effects, { packageId: KNOTS_PKG })],
-    ([status]) => status?.started ?? null,
-    (prev, next) => next === null || prev === next,
-  ).const()
 
   const subcontainer = await sdk.SubContainer.eager(
     effects,
@@ -115,6 +152,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
       (prev, next) => next === null || prev === next,
     )
     .const(effects)
+
+  // Restart if the node is up again on a new start, says its RPC is ready,
+  // and its new cookie still has not shown through the mount. The mount is
+  // made once, of the node's volume directory as it is now. A failed install
+  // of the node puts its volume back by renaming the backup into place, and
+  // the mount keeps the directory it was made from, so the cookie read
+  // through it never changes again: the gateway dials with stale credentials
+  // and every template fetch fails, silently. The node writes its cookie
+  // before its RPC answers, so a live mount shows it by then, and the cookie
+  // watch above has already rerun this; a node that never gets ready is left
+  // alone.
+  watchForStaleMount(effects, `${rootfs}${knotsMountpoint}/.cookie`, cookie)
 
   const store = await storeJson.read().const(effects)
 
