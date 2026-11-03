@@ -1,7 +1,12 @@
 # datum-blake2b
 
 DATUM Gateway serving Sia-style BLAKE2b work, so an existing Sia-compatible ASIC can
-mine the BLAKE2b chain. Packaged for StartOS 0.4.0.x.
+mine the BLAKE2b chain. Packaged for StartOS 0.4.
+
+**Requires StartOS 0.4.0.2 or newer** from 1.0.0:56 on. A server on 0.4.0.1 is not
+offered those releases: the registry lists them, but installing one reports
+`not found on https://start9.paulscode.com/rpc/v0`.
+Such a server can still install 1.0.0:54. Update StartOS first.
 
 **One chain: BLAKE2b on mainnet**, following the node package. Solo by default;
 pooled at a DATUM pool that serves this chain (Lazarus, Convoy) through the
