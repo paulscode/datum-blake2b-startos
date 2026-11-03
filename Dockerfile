@@ -140,10 +140,22 @@
 # A third added commit fixes a Convoy test that failed only in the emulated
 # arm64 build: it compared against stat("/proc/self/exe"), which under QEMU
 # describes the emulator, not the gateway.
+#
+# blake2b-full-payout-5 (the pin below) is blake2b-full-payout-4 plus one commit,
+# f81454c. The dashboard's "CRITICAL: DATUM pool ignored a valid block" covered
+# two conditions: a real one, now recorded with its block hash and time, and a
+# local one, a share that could not be kept for the anti-withholding check, now a
+# WARNING for the affected assignment that ends when the pool discloses it. The
+# usual cause of the second was the ABW template cache, keyed by template
+# generation, so every work update took one of its 256 slots; templates with the
+# same transactions now share one, matched by a hash computed once per template.
+# Builds and passes --test with gcc and clang
+# -Wall -Werror, -DDATUM_API_FOR_UMBREL, ENABLE_API=OFF, and ASan+UBSan with gcc
+# and clang.
 FROM debian:bookworm-slim AS build
 
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=832ad3940b986fbc69b6a3a1d43f0c4bc7cf99bb
+ARG DATUM_REF=f81454cac730cb1b311afa617476004e9cb9027c
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

@@ -45,12 +45,27 @@ export async function readGroup<G extends Group>(effects: any, group: G) {
  * because either can be left unset, and the constraint is checked against what
  * DATUM will actually run with rather than against what the form holds.
  *
- * `work_update_seconds` is always written by `entrypoint.sh`, which supplies 5
- * when the user has set nothing. `protocol_global_timeout` is omitted when
- * unset, so DATUM's built-in 60 applies.
+ * `work_update_seconds` is always written by `entrypoint.sh`, which supplies
+ * DATUM's suggested 40 when the user has set nothing (5 until 1.1.0), lowered
+ * to fit a shorter protocol timeout: see defaultWorkUpdate().
+ * `protocol_global_timeout` is omitted when unset, so DATUM's built-in 60 applies.
  */
-const WORK_UPDATE_DEFAULT = 5
+const WORK_UPDATE_DEFAULT = 40
 const PROTOCOL_TIMEOUT_DEFAULT = 60
+
+/**
+ * The interval the entrypoint uses when the user has set none: the default, or
+ * less if the protocol timeout is too short for it, never below DATUM's floor of 5.
+ * Adapting the default changes nothing the user chose, unlike stretching a value
+ * they set, which is refused below. The entrypoint applies the same rule.
+ *
+ * Every 5 seconds was this package's own choice, not DATUM's. Each work update is
+ * a new template, and under an anti-withholding pool each template a share lands
+ * on is kept until the assignment is disclosed, so a short interval filled the
+ * Gateway's 256-template cache within one assignment.
+ */
+export const defaultWorkUpdate = (timeout: number) =>
+  Math.min(WORK_UPDATE_DEFAULT, Math.max(5, timeout - 5))
 
 /**
  * DATUM refuses to start unless `protocol_global_timeout` is at least
@@ -73,14 +88,14 @@ export async function assertTimingsAgree(
   input: any,
 ) {
   const c = await storeJson.read((s) => s.config).once()
-  const workUpdate =
-    (changed === 'bitcoind'
-      ? input?.work_update_seconds
-      : c?.bitcoind?.work_update_seconds) ?? WORK_UPDATE_DEFAULT
   const timeout =
     (changed === 'datum'
       ? input?.protocol_global_timeout
       : c?.datum?.protocol_global_timeout) ?? PROTOCOL_TIMEOUT_DEFAULT
+  const workUpdate =
+    (changed === 'bitcoind'
+      ? input?.work_update_seconds
+      : c?.bitcoind?.work_update_seconds) ?? defaultWorkUpdate(timeout)
 
   const required = workUpdate + 5
   if (timeout >= required) return

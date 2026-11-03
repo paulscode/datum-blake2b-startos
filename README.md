@@ -70,6 +70,37 @@ version first, then the node's Max Block Weight.
 The **Fingerprint Miners** setting went with the classes; the gateway no longer
 has the option.
 
+### Reading the log and the dashboard status
+
+**`Generating coinbases for up to N outputs`** is how many outputs the pool sent
+for that job, logged before the coinbase is built. It is not a limit the gateway
+applies. The Coinbaser page shows a later job, and a pool's split changes from job
+to job, so the two counts differ.
+
+A pool that runs anti-withholding (ABW) commits the gateway to a key it reveals
+later, so the gateway can check afterwards that no block found here was withheld.
+Two different conditions come out of that, and since 1.1.0 the dashboard
+reports them separately:
+
+- **`CRITICAL: DATUM pool ignored a valid block, <hash> at <time>`** (with more
+  than one, `DATUM pool ignored N valid blocks; the latest was <hash> at <time>`).
+  A reveal showed a block found here that the pool had not handled. The log says
+  `CRITICAL ABW FAILURE: pool ignored valid block <hash>`. It stays until the
+  gateway restarts. Look the block up and take it to the pool.
+- **`WARNING: Withholding check incomplete for ABW assignment slot N`.** Some
+  shares could not be kept for that check, so a withheld block among them would
+  go unnoticed. The log says `Could not retain anti-withholding candidates for ABW
+  assignment slot N`, once per assignment. It says nothing about the pool, and
+  shares still reach it as usual. It ends when the pool discloses that
+  assignment, which logs how many shares went unchecked, or when the gateway
+  reconnects to the pool as a new session.
+
+Until 1.1.0 both showed as the CRITICAL line, which stayed until a restart, and
+the second was the usual one: the gateway kept one cached block template per work
+update, and at this package's old 5-second interval its 256 slots ran out within
+one assignment. Templates with the same transactions now share a slot, and the
+interval now defaults to DATUM's 40 seconds.
+
 ## Install
 
 Add this registry to StartOS and install from it:
@@ -658,7 +689,7 @@ the difficulty, the job rate and the chain all at once, so it cannot separate "o
 work is wrong" from "our conditions provoke marginal silicon". Two settings can
 separate them on this chain, one variable at a time:
 
-- **`work_update_seconds`**, default 5, settable 5 to 120 (the gateway raises anything lower to 5). At 60 the 741 non-clean
+- **`work_update_seconds`**, default 40 (5 until 1.1.0), settable 5 to 120 (the gateway raises anything lower to 5). At 60 the 741 non-clean
   refreshes drop to roughly 35 while the 350 block-driven ones stay. A sharp fall
   in errors points at reload churn.
 - **`vardiff_min`**. Raising it means fewer, harder shares, so fewer nonce returns

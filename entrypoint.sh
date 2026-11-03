@@ -177,7 +177,7 @@ cat > "$CONF" <<JSON
 		"rpcuser": "${RPC_USER}",
 		"rpcpassword": "${RPC_PASSWORD}",
 		"rpcurl": "${RPC_URL}",
-		"work_update_seconds": ${WORK_UPDATE_SECONDS:-5},
+		"work_update_seconds": ${WORK_UPDATE_SECONDS:-40},
 		"notify_fallback": true
 	},
 	"stratum": {
@@ -275,6 +275,24 @@ for group, values in overrides.items():
             continue
         section[key] = value
         applied.append(f"{group}.{key}")
+
+# The interval this package supplies when you set none is DATUM's suggested 40 (it
+# was 5 until 1.1.0). DATUM refuses to start unless the protocol timeout is at
+# least the interval plus 5, and a timeout set while the default was 5 can be
+# shorter than the 45 the new one needs, so the default steps down to fit it, never
+# below DATUM's floor of 5. A value you set yourself, in the config form or as
+# WORK_UPDATE_SECONDS, is never changed here: the config form refuses a combination
+# that does not fit. Same rule as
+# defaultWorkUpdate() in startos/actions/config/_shared.ts.
+bitcoind_conf = conf.setdefault("bitcoind", {})
+timeout = conf.get("datum", {}).get("protocol_global_timeout")
+interval_set = ("bitcoind.work_update_seconds" in applied
+                or bool(os.environ.get("WORK_UPDATE_SECONDS")))
+if (not interval_set and isinstance(timeout, int) and not isinstance(timeout, bool)
+        and bitcoind_conf.get("work_update_seconds", 40) + 5 > timeout):
+    bitcoind_conf["work_update_seconds"] = max(5, timeout - 5)
+    print(f"datum-blake2b: default work update interval lowered to "
+          f"{bitcoind_conf['work_update_seconds']}s to fit protocol timeout {timeout}s")
 
 with open(path, "w") as f:
     json.dump(conf, f, indent=1)

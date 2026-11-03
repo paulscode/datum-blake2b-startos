@@ -13,11 +13,11 @@ const inputSpec = InputSpec.of({
   work_update_seconds: Value.number({
     name: i18n('Work Update Seconds'),
     description: i18n(
-      'Seconds between routine work updates sent to miners. A new block is picked up immediately regardless. The gateway enforces at least 5.',
+      'Seconds between routine work updates sent to miners. A new block is picked up immediately regardless. Default 40; the gateway enforces at least 5.',
     ),
     required: false,
     default: null,
-    placeholder: '5',
+    placeholder: '40',
     // DATUM raises anything under 5 to 5 (datum_conf.c), so a lower value here
     // was a setting that silently did nothing.
     min: 5,

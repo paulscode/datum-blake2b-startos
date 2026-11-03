@@ -7,7 +7,7 @@ const dict = {
   API: 3,
   'Settings for the gateway dashboard.': 4,
   'Work Update Seconds': 5,
-  'Seconds between routine work updates sent to miners. A new block is picked up immediately regardless. The gateway enforces at least 5.': 6,
+  'Seconds between routine work updates sent to miners. A new block is picked up immediately regardless. Default 40; the gateway enforces at least 5.': 6,
   'Notify Fallback': 7,
   'Poll the node for new blocks as a backstop, in case its block notification does not arrive.': 8,
   Bitcoind: 9,
