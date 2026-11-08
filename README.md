@@ -113,6 +113,14 @@ That is the quickest route, and it is the one to use unless you have a reason to
 build. Installing from the registry gets the signed release; building from source
 gets whatever is in the working tree, which is not the same thing.
 
+On StartOS 0.4.1 and newer, an install from this registry with `start-cli` can fail with
+`Signer(s) not accepted`. Add `--trust`, which accepts the package's signer for that
+install; StartOS still checks the signature and the package's integrity:
+
+```
+start-cli -r https://start9.paulscode.com package install --trust datum-blake2b "=1.1.0:0"
+```
+
 `knots-blake2b` is a dependency and comes from the same registry. Install it first
 if StartOS does not offer to.
 
