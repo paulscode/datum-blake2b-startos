@@ -6,7 +6,7 @@ DATUM Gateway is **built from source, from a fork, pinned by commit**. There is 
 
 ```dockerfile
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=299802934ac5811c1fd42a53c651ebc28f278b76
+ARG DATUM_REF=00cf255f8254833cba73472a769c51fdaf0846ef
 ```
 
 **A commit, not a branch or a tag.** A branch name is a moving target, and this is the one
@@ -16,7 +16,7 @@ it actually built.
 
 ## The branch is layered, and each layer has an upstream
 
-The pin is on `blake2b-full-payout-4`, built in this order:
+The pin is on `blake2b-full-payout-6`, built in this order:
 
 1. **[CONVOYMining/datum_gateway](https://github.com/CONVOYMining/datum_gateway) `master`**,
    the base, at v0.5.0beta (`69c61a9`). Convoy's pool protocol (the DRS handshake, anti-withholding) lives here,
@@ -34,6 +34,11 @@ The pin is on `blake2b-full-payout-4`, built in this order:
    coinbaser. It fixes an interaction with layer 4 and stays with it. Then two small
    ones from the v0.5.0beta rebase: the reject reason tests link without the API, and
    the Config page marks Extranonce2 size restart-on-save.
+6. **Ours, after the `2998029` pin**: the executable-path test passes under QEMU
+   (`832ad39`, `-4`'s last commit); `-5` separates the anti-withholding retention gap
+   from an ignored block and shares cached templates by content (`f81454c`); `-6` moves
+   work to a newly active assignment at once and counts a share for a disclosed one as
+   stale (`00cf255`). The Dockerfile comments above `DATUM_REF` describe each.
 
 `-3` cherry-picked `bfd5108` (Convoy #9) onto a `b0c5f58` base; that is in v0.5.0beta
 now. The version string matters outside this repo: Lazarus's gateway list and MCP flag

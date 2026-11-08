@@ -3,8 +3,8 @@ import { long, short } from './i18n'
 
 export const manifest = setupManifest({
   // Deliberately NOT `datum`: that is the official Datum Gateway package, and
-  // both must be installable at once. See PLAN Q12 on why the chain stays out of
-  // the id and in the title.
+  // both must be installable at once. The chain stays out of the id, which is
+  // effectively immutable, and goes in the title.
   id: 'datum-blake2b',
   title: 'Datum Gateway (BLAKE2b) Companion',
   license: 'MIT',

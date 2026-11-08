@@ -37,7 +37,7 @@
 # e998e38 added the dupe table index fix and the local share reject reasons,
 # both sent upstream as OCEAN #237 and Convoy #18.
 #
-# blake2b-full-payout (the pin below) is the same work moved onto Convoy's
+# blake2b-full-payout (an earlier pin) is the same work moved onto Convoy's
 # current master, plus iohzrd's coinbase fixes, because every build up to
 # 1.0.0:52 paid at most about 17 miners per block. The gateway still gave each
 # miner the coinbase class its firmware was known to accept, and fell back to
@@ -109,7 +109,7 @@
 # split arrives (17 outputs, the same as the shipped gateway receives today);
 # Lazarus's split arrives at 113 outputs and is built in full.
 #
-# blake2b-full-payout-3 (the pin below) is blake2b-full-payout-2 plus two
+# blake2b-full-payout-3 (a pin before -6) is blake2b-full-payout-2 plus two
 # commits. The first is a cherry-pick from Convoy master, bfd5108 (Convoy #9): the coinbaser fetch takes
 # its lock before sending the request, and waits for the reply to this job's
 # value. A split that arrived before the fetch was waiting used to be missed,
@@ -124,7 +124,7 @@
 # block could get a split fetched for it and its coinbases rewritten while
 # miners were hashing them.
 #
-# blake2b-full-payout-4 (the pin below) is blake2b-full-payout-3 rebased onto
+# blake2b-full-payout-4 (a pin before -6) is blake2b-full-payout-3 rebased onto
 # Convoy v0.5.0beta (69c61a9), plus two commits. Lazarus's gateway list and MCP
 # now flag every v0.4.1-beta build as out of date (AwokenLazarus/Bitcoin
 # 98da56f, 2026-10-19), and -3 reported v0.4.1-beta. The rebase brings in the
@@ -141,7 +141,7 @@
 # arm64 build: it compared against stat("/proc/self/exe"), which under QEMU
 # describes the emulator, not the gateway.
 #
-# blake2b-full-payout-5 (the pin below) is blake2b-full-payout-4 plus one commit,
+# blake2b-full-payout-5 (a pin before -6) is blake2b-full-payout-4 plus one commit,
 # f81454c. The dashboard's "CRITICAL: DATUM pool ignored a valid block" covered
 # two conditions: a real one, now recorded with its block hash and time, and a
 # local one, a share that could not be kept for the anti-withholding check, now a
@@ -154,8 +154,17 @@
 # and clang.
 FROM debian:bookworm-slim AS build
 
+# blake2b-full-payout-6 (the pin below) is blake2b-full-payout-5 plus one commit,
+# 00cf255. A job keeps the anti-withholding assignment that was active when its
+# template was fetched, and only the first activation asked for new work, so after
+# the pool moved on the current job stayed on the old assignment until the next work
+# update; once the pool disclosed it, every share was refused as pool-submit-failed
+# with an ERROR. With 40 s work updates that window could last most of a minute. A
+# change of active assignment now asks for a work update at once (a standard job on
+# the same tip, no clean_jobs), and a share that still arrives for a disclosed
+# assignment counts as stale-work, logged at DEBUG.
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=f81454cac730cb1b311afa617476004e9cb9027c
+ARG DATUM_REF=00cf255f8254833cba73472a769c51fdaf0846ef
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \

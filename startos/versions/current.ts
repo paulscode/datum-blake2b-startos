@@ -1,7 +1,15 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'The dashboard no longer reports "DATUM pool ignored a valid block" when the ' +
+  'Shares are no longer refused when the pool moves to a new anti-withholding ' +
+  'assignment between work updates. The gateway kept the current job on the old ' +
+  'assignment until its next work update, and once the pool disclosed it, every ' +
+  'share for that job was rejected as pool-submit-failed with an error in the ' +
+  'log. The gateway now sends new work as soon as the pool makes a new ' +
+  'assignment active, without clean_jobs, so miners keep the work they have in ' +
+  'progress. A share that still arrives for a disclosed assignment is counted ' +
+  'as stale, which is what it is, and logged only at debug level. ' +
+  'From 1.1.0:0: the dashboard no longer reports "DATUM pool ignored a valid block" when the ' +
   'pool did nothing wrong. Two different conditions shared that alarm, and the ' +
   'usual one was local: the gateway could not keep shares for its ' +
   'anti-withholding check once an assignment had outlived about 20 minutes ' +
@@ -30,7 +38,7 @@ const notes =
   'miners are working on it.'
 
 export const current = VersionInfo.of({
-  version: '1.1.0:0',
+  version: '1.1.1:0',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
