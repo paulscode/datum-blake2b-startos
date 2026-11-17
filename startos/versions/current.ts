@@ -10,7 +10,9 @@ const notes =
   'serves, which stops large overshoots after a step up. A connection that opens ' +
   'with a TLS handshake is closed at once, so the MiningRigRentals pool test no ' +
   'longer reports a working endpoint as failing. The gateway answers ' +
-  'datum.capabilities, so Pickhash can tell what it supports. ' +
+  'datum.capabilities, so Pickhash can tell what it supports. "Let miners ' +
+  'request a difficulty in the Stratum password", which this package has always ' +
+  'switched on, is now a setting too. ' +
   'From 1.1.1:0: shares are no longer refused when the pool moves to a new anti-withholding ' +
   'assignment between work updates. The gateway kept the current job on the old ' +
   'assignment until its next work update, and once the pool disclosed it, every ' +
