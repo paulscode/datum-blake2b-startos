@@ -65,6 +65,9 @@ const shape = z.looseObject({
           vardiff_quickdiff_count: z.number().int().positive().optional(),
           vardiff_quickdiff_delta: z.number().int().positive().optional(),
           share_stale_seconds: z.number().int().positive().optional(),
+          // Both on in the generated config unless set false here (entrypoint.sh).
+          vardiff_below_pool_min: z.boolean().optional(),
+          password_difficulty: z.boolean().optional(),
           // fingerprint_miners was here until 1.0.0:53. The option exists in the
           // gateway again but does nothing for BLAKE2b miners, so it is not
           // offered; zod drops the key from older stores on read, so it never

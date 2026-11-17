@@ -124,6 +124,10 @@ const dict = {
   'Estimated hashrate': 120,
   'Could not read the hashrate': 121,
   'Starting share difficulty, the number your miner shows. Vardiff adapts from here; a low value lets a slow hasher produce shares immediately on connect. Rounded down to a power of two. The dashboard shows it as the full difficulty, 2^32 times larger: 64 appears as 274.9G.': 122,
+  "Serve miners below the pool's minimum difficulty": 123,
+  "Give each miner a difficulty that suits its own hashrate even when the pool's minimum is higher. Work is still committed at the pool's minimum and only shares that meet it are sent to the pool, so pool credit is unchanged. Recommended for rented rigs: without it, a busy gateway pushes every rig to a difficulty sized for the whole fleet.": 124,
+  'Let miners request a difficulty in the Stratum password': 125,
+  'A miner (or a rental marketplace) can ask for a difficulty with a password such as d=65536. Pickhash uses this to give each rented rig the difficulty its marketplace expects.': 126,
 } as const
 
 /**

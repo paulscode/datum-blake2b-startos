@@ -1,7 +1,17 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Shares are no longer refused when the pool moves to a new anti-withholding ' +
+  'Rented rigs keep their own difficulty. With "Serve miners below the pool\'s ' +
+  'minimum difficulty" (Stratum settings, on by default), each miner gets a ' +
+  "difficulty that suits its hashrate even when the pool's minimum is far higher, " +
+  "as CONVOY's is behind a busy gateway. Work is still committed at the pool's " +
+  'minimum and only shares meeting it are sent to the pool, so pool credit is ' +
+  'unchanged; tested live on CONVOY. Vardiff now measures at the difficulty it ' +
+  'serves, which stops large overshoots after a step up. A connection that opens ' +
+  'with a TLS handshake is closed at once, so the MiningRigRentals pool test no ' +
+  'longer reports a working endpoint as failing. The gateway answers ' +
+  'datum.capabilities, so Pickhash can tell what it supports. ' +
+  'From 1.1.1:0: shares are no longer refused when the pool moves to a new anti-withholding ' +
   'assignment between work updates. The gateway kept the current job on the old ' +
   'assignment until its next work update, and once the pool disclosed it, every ' +
   'share for that job was rejected as pool-submit-failed with an error in the ' +
@@ -38,7 +48,7 @@ const notes =
   'miners are working on it.'
 
 export const current = VersionInfo.of({
-  version: '1.1.1:0',
+  version: '1.1.2:0',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
