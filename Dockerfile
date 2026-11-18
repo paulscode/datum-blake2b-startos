@@ -164,7 +164,7 @@ FROM debian:bookworm-slim AS build
 # the same tip, no clean_jobs), and a share that still arrives for a disclosed
 # assignment counts as stale-work, logged at DEBUG.
 ARG DATUM_REPO=https://github.com/paulscode/datum_gateway.git
-ARG DATUM_REF=b74a5858b6fed950ac3cb48ebea1911123a86ec6
+ARG DATUM_REF=4e05599a615a052b99de61965508530c18c4ac55
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf git ca-certificates \
