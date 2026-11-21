@@ -111,6 +111,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
     })
     .const()
 
+  // Which of the node's volumes to read the cookie from, decided by what the
+  // installed node declares, never by looking for the folder. From 29.5.0:2 the
+  // node publishes a copy of its cookie in `public`, a volume holding nothing
+  // else, the way Start9's Bitcoin Core does from 31.2:4. Older nodes only have
+  // it in `main`, the whole data directory. A folder is no guide: StartOS
+  // deletes a volume only on uninstall, so a `public` left by another node can
+  // still be there with a dead cookie in it. Reactive, so updating the node
+  // restarts this onto the right volume. Both are mounted at the same place,
+  // with the cookie at the root.
+  const nodeVolume = await sdk
+    .getServiceManifest(effects, KNOTS_PKG, (m) =>
+      m?.volumes.includes('public') ? ('public' as const) : ('main' as const),
+    )
+    .const()
+
   const subcontainer = await sdk.SubContainer.eager(
     effects,
     { imageId: 'datum' },
@@ -121,13 +136,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
         mountpoint: dataDir,
         readonly: false,
       })
-      // Read-only view of the node's datadir, purely to read its RPC cookie.
-      // This is how the official Datum package authenticates against the
-      // official Bitcoin package, and it means neither side has to generate,
-      // store or hand around an RPC secret.
+      // Read-only, purely to read the node's RPC cookie. This is how the
+      // official Datum package authenticates against the official Bitcoin
+      // package, and it means neither side has to generate, store or hand
+      // around an RPC secret.
       .mountDependency<typeof knotsManifest>({
         dependencyId: KNOTS_PKG,
-        volumeId: 'main',
+        volumeId: nodeVolume,
         subpath: null,
         mountpoint: knotsMountpoint,
         readonly: true,

@@ -21,7 +21,8 @@ export const uiPort = 7153
 
 export const dataDir = '/data'
 
-// Where this container mounts the node's volume, read-only, to read its cookie.
+// Where this container mounts the node's volume, read-only, to read its cookie:
+// `public` or `main`, whichever main.ts picks. Both have the cookie at the root.
 export const knotsMountpoint = '/knots'
 
 // DATUM's dashboard admin user is not configurable: `datum_conf.c` documents the

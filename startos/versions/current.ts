@@ -1,7 +1,10 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Fixes from independent reviews of the gateway changes. A rig no longer gets ' +
+  'Reads the RPC login from the node volume that holds only that, on a Bitcoin ' +
+  'Knots (BLAKE2b) Companion 29.5.0:2 or later, instead of mounting the whole ' +
+  'data directory, wallets included. Older nodes keep working as before. ' +
+  'From 1.1.3:0: fixes from independent reviews of the gateway changes. A rig no longer gets ' +
   "the same work twice when a quickdiff arrives for a job it hasn't been sent " +
   'yet; before, the quickdiff sent a copy of that job at once and the regular ' +
   "send repeated it, so the rig's shares came back as duplicates. A share the " +
@@ -62,7 +65,7 @@ const notes =
   'miners are working on it.'
 
 export const current = VersionInfo.of({
-  version: '1.1.3:0',
+  version: '1.1.3:1',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

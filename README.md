@@ -16,7 +16,8 @@ The chain used to be read from the node's own generated `bitcoin.conf` through t
 read-only mount this package has, because bitcoind kept each chain's data,
 including its RPC cookie, in a subdirectory named for that chain, and the node
 could be on any of three. That is gone as of 1.0.0:43, with the node package's
-chain selector: the cookie is at `/knots/.cookie` and nowhere else.
+chain selector: the cookie is at `/knots/.cookie` and nowhere else (see Credentials
+for which of the node's volumes is mounted there).
 
 Pooled mining needs a pool built for this chain. A pool validates shares against
 the chain's proof of work, so Ocean and every other SHA256d DATUM pool cannot take
@@ -241,11 +242,20 @@ config failed on `worthy-maverick.local:23336` and connected immediately on
 
 ## Credentials
 
-None are stored. The node writes an RPC cookie into its datadir and this package
-reads it through a read-only mount of the node's volume, which is how the official
-Datum package authenticates against the official Bitcoin package. It also reads the
-node's `blake2b_headline` from the same mount, because the block at the activation
-height must carry it in its coinbase or the node rejects it `bad-headline`.
+None are stored. The node writes an RPC cookie and this package reads it through a
+read-only mount of one of the node's volumes, which is how the official Datum
+package authenticates against the official Bitcoin package. The cookie is the only
+thing read through that mount.
+
+Which volume is decided per start from the installed node's manifest, never by
+looking for a folder. A node that declares `public` (knots-blake2b 29.5.0:2 and
+later, the same volume Start9's Bitcoin Core publishes from 31.2:4) has a copy of
+its cookie there and nothing else, so that is mounted. An older node has the
+cookie only at the root of `main`, its whole data directory, so that is mounted
+instead. Both go to `/knots`, so the cookie is always `/knots/.cookie`. A folder is
+no guide because StartOS deletes a volume only on uninstall: a `public` written by
+an earlier node can still be there, holding a dead cookie. The read is reactive, so
+updating the node restarts the gateway onto the right volume.
 
 When the node is not resolvable, no `rpcurl` is written at all rather than a dead
 placeholder address, so the failure is visible instead of masked.
