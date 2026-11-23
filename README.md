@@ -175,6 +175,16 @@ Interface**, **Number of Stratum Clients Connected**, **Estimated Hashrate**, th
 last two scraped from the gateway's own status page. The same interface names,
 **Web UI** and **Stratum**.
 
+Every one of those checks goes through `startos/boundedCheck.ts`. start-sdk
+awaits a check's run with no limit, and a stop waits for every check before the
+gateway it requires, so one run that never returned (a subcontainer `exec`
+waiting on its mounts) would hold up Stop, updates and restarts, as it did in
+Bitcoin Knots (BLAKE2b) Companion before 29.5.0:1. A run still pending after a
+minute is left behind: the check repeats its last result twice, then reads
+*This check has not finished after a minute* (`starting`, never `failure`). No
+second run starts while one is pending, and a run that finishes late is the
+next call's answer.
+
 As of 1.0.0:43 the action list is exactly the official package's. The one thing
 here with no counterpart there, an opt-in compatibility-capture port and the
 report built from it, is gone: it existed to find out which Sia ASICs could speak

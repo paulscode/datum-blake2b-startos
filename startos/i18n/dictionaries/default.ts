@@ -128,6 +128,7 @@ const dict = {
   "Give each miner a difficulty that suits its own hashrate even when the pool's minimum is higher. Work is still committed at the pool's minimum and only shares that meet it are sent to the pool, so pool credit is unchanged. Recommended for rented rigs: without it, a busy gateway pushes every rig to a difficulty sized for the whole fleet.": 124,
   'Let miners request a difficulty in the Stratum password': 125,
   'A miner (or a rental marketplace) can ask for a difficulty with a password such as d=65536. Pickhash uses this to give each rented rig the difficulty its marketplace expects.': 126,
+  'This check has not finished after a minute': 127,
 } as const
 
 /**

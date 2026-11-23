@@ -1,7 +1,11 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Reads the RPC login from the node volume that holds only that, on a Bitcoin ' +
+  'Stop, updates and restarts can no longer be held up by a status check that ' +
+  'never finishes: a check still unanswered after a minute says so, and no ' +
+  'longer keeps the service from stopping. The same problem made Bitcoin Knots ' +
+  '(BLAKE2b) Companion updates hang before its 29.5.0:1. ' +
+  'From 1.1.3:1: reads the RPC login from the node volume that holds only that, on a Bitcoin ' +
   'Knots (BLAKE2b) Companion 29.5.0:2 or later, instead of mounting the whole ' +
   'data directory, wallets included. Older nodes keep working as before. ' +
   'From 1.1.3:0: fixes from independent reviews of the gateway changes. A rig no longer gets ' +
@@ -65,7 +69,7 @@ const notes =
   'miners are working on it.'
 
 export const current = VersionInfo.of({
-  version: '1.1.3:1',
+  version: '1.1.3:2',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
